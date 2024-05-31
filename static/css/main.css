@@ -1,0 +1,16 @@
+#stock-box{
+    padding-top: 15px;
+    padding-bottom: 15px;
+    margin: auto;
+    text-align: center;
+    font-family:'Courier New', Courier, monospace;
+    border-radius: 2px;
+    background-color: yellow;
+    
+}
+#news{
+    margin: 10px;
+    text-align: center;
+    font-family:'Courier New', Courier, monospace;
+    background-color: red;
+}
