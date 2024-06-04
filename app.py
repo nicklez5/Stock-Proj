@@ -1,9 +1,17 @@
-from flask import Flask, render_template, url_for, request, redirect
+from flask import Flask, make_response, render_template, render_template_string, url_for, request, redirect
 from flask_sqlalchemy import SQLAlchemy
+from eodhd import APIClient
+import pandas as pd
+import requests
+from newsdataapi import NewsDataApiClient
 from newsapi import NewsApiClient
 from datetime import datetime
+import json
+
+from sqlalchemy import URL
 app = Flask(__name__)
-newsapi = NewsApiClient(api_key='230b4a51a01f4de2ba0329e873fa5fe3')
+
+api = APIClient("6652bd3e397aa5.61249582")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 db = SQLAlchemy(app)
 
@@ -25,79 +33,101 @@ class Stock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100),nullable=False)
 
-    open_price = db.Column(db.Integer, default=0)
-    high_price = db.Column(db.Integer, default=0)
-    low_price = db.Column(db.Integer, default=0)
-    adj_close = db.Column(db.Integer, default=0)
-    volume = db.Column(db.Integer,default = 0)
+    start_date = db.Column(db.DateTime,default='2023-01-01')
+    end_date = db.Column(db.DateTime,default=datetime.now())
+
 
 
     def __repr__(self):
         return f'<Stock "{self.name}">'
     
-def get_sources_and_domains():
-    all_sources = newsapi.get_sources()['sources']
-    sources = []
-    domains = []
-    for e in all_sources:
-        id = e['id']
-        domain = e['url'].replace("http://", "")
-        domain = domain.replace("https://", "")
-        domain = domain.replace("www.","")
-        slash = domain.find('/')
-        if slash != -1:
-            domain = domain[:slash]
-        sources.append(id)
-        domains.append(domain)
-    sources = ", ".join(sources)
-    domains = ", ".join(domains)
-    return sources, domains
-
-@app.route("/", methods=['GET','POST'])
+@app.route("/", methods=['POST'])
 def home():
-    persons = Person.query.all()
-    if request.method == "POST":
+    api = NewsDataApiClient(apikey='pub_45577c20ab4b3b9164fe39620ed39bdfef60c')
+    response = api.news_api()
+    print(response)
+@app.route('/stocks', methods=['POST'])
+def stock():
+    if request.method == 'POST':
+        stock_name = request.form.get('keyword2')
+        from_date = request.form.get('from_date')
+        to_date = request.form.get('to_date')
+        period = request.form.getlist('period')
+        order = request.form.getlist('order')
+        if "d" in period:
+            if "a" in order:
+                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a')
+                with open("sample.json","w") as outfile:
+                    json.dump(resp,outfile)
+                f = open('sample.json',)
+                data = json.load(f)
+                df = pd.DataFrame.from_dict(data)
+                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+                temp_stock = Stock(name=stock_name,start_date=from_date,end_date = to_date)
+                
+                return render_template('stock.html',my_table=my_table)
+            elif "d" in order:
+                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='d')
+                with open("sample.json","w") as outfile:
+                    json.dump(resp,outfile)
+                f = open('sample.json',)
+                data = json.load(f)
+                df = pd.DataFrame.from_dict(data)
+                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+                
+                return render_template('stock.html',my_table=my_table)
+        elif 'm' in period:
+                if "a" in order:
+                    resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date,order='a')
+                    with open("sample.json","w") as outfile:
+                        json.dump(resp,outfile)
+                    f = open('sample.json',)
+                    data = json.load(f)
+                    df = pd.DataFrame.from_dict(data)
+                    my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+                    
+                    return render_template('stock.html',my_table=my_table)
+                elif "d" in order:
+                    resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date,order='d')
+                    with open("sample.json","w") as outfile:
+                        json.dump(resp,outfile)
+                    f = open('sample.json',)
+                    data = json.load(f)
+                    df = pd.DataFrame.from_dict(data)
+                    my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+                    
+                    return render_template('stock.html',my_table=my_table)
+        elif "y" in period:
+            if "a" in order:
+                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='y',from_date=from_date,to_date=to_date,order='a')
+                with open("sample.json","w") as outfile:
+                    json.dump(resp,outfile)
+                f = open('sample.json',)
+                data = json.load(f)
+                df = pd.DataFrame.from_dict(data)
+                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+                print(data)
+                return render_template('stock.html',my_table=my_table)
+            elif "d" in order:
+                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='y',from_date=from_date,to_date=to_date,order='d')
+                with open("sample.json","w") as outfile:
+                    json.dump(resp,outfile)
+                f = open('sample.json',)
+                data = json.load(f)
+                df = pd.DataFrame.from_dict(data)
+                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+                print(data)
+                return render_template('stock.html',my_table=my_table)
+            
+    elif request.method == 'GET':
+        my_table = []
+        return render_template('stock.html',my_table=empty_table)
+    return render_template('stock.html')
 
-        sources, domains = get_sources_and_domains()
-        keyword = request.form["keyword"]
-        related_news = newsapi.get_everything(q=keyword,
-                                              sources=sources,
-                                              domains=domains,
-                                              language='en',
-                                              sort_by='relevancy')
-        no_of_articles = related_news['totalResults']
-        if no_of_articles > 100:
-            no_of_articles = 100
-        all_articles = newsapi.get_everything(q=keyword,
-                                              sources=sources,
-                                              domains=domains,
-                                              language='en',
-                                              sort_by = 'relevancy',
-                                              page_size = no_of_articles)['articles']
-        return render_template("home.html", all_articles = all_articles,
-                               keyword=keyword, persons=persons)
-    else:
-        top_headlines = newsapi.get_top_headlines(country="us", language="en")
-        total_results = top_headlines['totalResults']
-        if total_results > 100:
-            total_results = 100
-        all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
-        return render_template("home.html", all_headlines = all_headlines, persons=persons)
-    return render_template("home.html")
 @app.route('/person', methods=['POST','GET'])
 def index():
-    if request.method == 'POST':
-        person_content = request.form['person_content']
-        new_person = Person(content=person_content)
-        try: 
-            db.session.add(new_person)
-            db.session.commit()
-            return redirect('/')
-        except:
-            return 'There was an issue adding a person'
-    else:
-        persons = Person.query.order_by(Person.date_created).all()
-        return render_template('index.html',persons=persons)
+    pass
+        
     return render_template('index.html')
 
 if __name__ == "__main__":
