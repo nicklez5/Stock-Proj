@@ -3,16 +3,47 @@
     padding-bottom: 15px;
     margin: auto;
     text-align: center;
-    font-family:'Courier New', Courier, monospace;
+    font-family:Verdana, sans-serif;
     border-radius: 2px;
-    background-color: yellow;
+    color: black;
+    display: inline;
+    position: relative;
+    left: 500px;
+    top: 50px;
+}
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #282727;
+}
+  
+li {
+    float: right;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
     
+}
+
+li a:hover {
+    background-color: #111;
 }
 #news{
     margin: 10px;
     text-align: center;
-    font-family:'Courier New', Courier, monospace;
-    background-color: red;
+    font-family: Verdana, sans-serif;
+    background-color: black;
+}
+#header{
+    background-color: black;
+    color: white;
 }
 
 body {
@@ -30,6 +61,7 @@ form.example input[type=text] {
     float: left;
     width: 80%;
     background: #f1f1f1;
+    margin-top: 500px;
 }
   
 form.example button {
@@ -42,6 +74,7 @@ form.example button {
     border: 1px solid grey;
     border-left: none;
     cursor: pointer;
+    padding-top: 15px;
 }
   
 form.example button:hover {

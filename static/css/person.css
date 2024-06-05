@@ -1,0 +1,87 @@
+body{
+    font-family: Arial;
+}
+*{
+    box-sizing: border-box;
+}
+.title{
+    color: green;
+    text-align: center;
+    font-family:'Courier New', Courier, monospace
+}
+form.example input[type=text]{
+    position: relative;
+    margin-top: 15px;
+    padding: 10px;
+    left: 35px;
+
+    font-size: 12.5px;
+    border: 1px solid grey;
+    float: left;
+    width: 80%;
+    background: #f1f1f1;
+}
+form.example h1{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    right: 1025px;
+    top: 85px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h2{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 135px;
+    right: 1025px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h3{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 185px;
+    right: 1025px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h4{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 225px;
+    right: 1025px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example button{
+    position: absolute;
+    background-color: green;
+    top: 300px;
+    right: 750px;
+    height: 50px;
+    width: 100px;
+    border-radius: 25px;
+}
+form.example input[type=password]{
+    position: relative;
+    margin-top: 15px;
+    padding: 10px;
+    left: 35px;
+
+    font-size: 12.5px;
+    border: 1px solid grey;
+    float: left;
+    width: 80%;
+    background: #f1f1f1;
+}
+p{
+    color: green;
+    position: absolute;
+    font-size: 20px;
+    bottom: 300px;
+    right: 675px;
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/person.css')}}">
+    <title>Information</title>
+</head>
+<body style="background-color: black;">
+    {% block body %}
+    <script src="https://kit.fontawesome.com/e50577ab3f.js" crossorigin="anonymous"></script>
+    <div>
+        <h1 class="title">Personal Information</h1>
+        {% if validation_password == False %}
+        <p>Wrong mismatch password</p>
+        {% elif username_validation == False %}
+        <p>Username is already there</p>
+        {% elif email_validation == False %}
+        <p>Email is already taken</p>
+        {% endif %}
+        <form class="example" action="/info" method="POST" style="margin:auto; max-width: 550px;">
+            
+            <h1>Username</h1>
+            <input type="text" placeholder="Enter username" name="username">
+            <h2>Email</h2>
+            <input type="text" placeholder="Enter email" name="email">
+            <h3>Password</h3>
+            <input type="password" placeholder="Enter password" name="password">
+            <h4>Re enter password</h4>
+            <input type="password" placeholder="Enter password again" name="password2">
+            <button type="submit" class="fa-solid fa-door-open"></button>
+        </form>
+    </div>
+    {% endblock %}
+</body>
+</html>

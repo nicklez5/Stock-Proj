@@ -1,16 +1,24 @@
-from flask import Flask, make_response, render_template, render_template_string, url_for, request, redirect
+from urllib import response
+from flask import Flask, make_response, render_template, render_template_string, url_for, request, redirect,session
 from flask_sqlalchemy import SQLAlchemy
 from eodhd import APIClient
+import pickle
 import pandas as pd
 import requests
+import os
+from dotenv import load_dotenv
 from newsdataapi import NewsDataApiClient
 from newsapi import NewsApiClient
 from datetime import datetime
 import json
 
 from sqlalchemy import URL
-app = Flask(__name__)
+load_dotenv()
 
+
+app = Flask(__name__)
+app.secret_key = "super secret key"
+newsapi = NewsApiClient(api_key='230b4a51a01f4de2ba0329e873fa5fe3')
 api = APIClient("6652bd3e397aa5.61249582")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 db = SQLAlchemy(app)
@@ -22,13 +30,31 @@ person_stocks = db.Table(
 )
 class Person(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
+    username = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100),nullable=False)
+    email = db.Column(db.String(100),nullable=False)
     date_created = db.Column(db.DateTime, default=datetime.utcnow)
-    #money = db.Column(db.Integer,default=4000)
+    money = db.Column(db.Integer,default=4000)
     stockz = db.relationship('Stock',lazy='subquery', secondary=person_stocks, backref='persons')
     
     def __repr__(self):
         return f'<Person "{self.name}">'
+    
+    @classmethod
+    def is_user_name_taken(cls,username):
+        return db.session.query(db.exists().where(Person.username == username)).scalar()
+    
+    @classmethod
+    def is_email_taken(cls,email):
+        return db.session.query(db.exists().where(Person.email==email)).scalar()
+
+    def toJSON(self):
+        return json.dumps(
+            self,
+            default=lambda o: o.__dict__,
+            sort_keys=True,
+            indent=4
+        )
 class Stock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100),nullable=False)
@@ -40,13 +66,33 @@ class Stock(db.Model):
 
     def __repr__(self):
         return f'<Stock "{self.name}">'
-    
-@app.route("/", methods=['POST'])
+def get_sources_and_domains():
+    all_sources = newsapi.get_sources()['sources']
+    sources = []
+    domains = []
+    for e in all_sources:
+        id = e['id']
+        domain = e['url'].replace("http://", "")
+        domain = domain.replace("https://", "")
+        domain = domain.replace("www.","")
+        slash = domain.find('/')
+        if slash != -1:
+            domain = domain[:slash]
+        sources.append(id)
+        domains.append(domain)
+    sources = ", ".join(sources)
+    domains = ", ".join(domains)
+    return sources, domains
+@app.route("/", methods=['GET'])
 def home():
-    api = NewsDataApiClient(apikey='pub_45577c20ab4b3b9164fe39620ed39bdfef60c')
-    response = api.news_api()
-    print(response)
-@app.route('/stocks', methods=['POST'])
+    top_headlines = newsapi.get_top_headlines(country="us",language="en")
+    total_results = top_headlines['totalResults']
+    if total_results > 100:
+        total_results = 100
+    all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
+    new_person = request.cookies.get('Person1')
+    return render_template("home.html", all_headlines=all_headlines,new_person=new_person)
+@app.route('/stocks', methods=['POST', 'GET'])
 def stock():
     if request.method == 'POST':
         stock_name = request.form.get('keyword2')
@@ -120,15 +166,48 @@ def stock():
                 return render_template('stock.html',my_table=my_table)
             
     elif request.method == 'GET':
-        my_table = []
+        empty_table = []
         return render_template('stock.html',my_table=empty_table)
     return render_template('stock.html')
 
-@app.route('/person', methods=['POST','GET'])
+@app.route('/info', methods=['POST','GET'])
 def index():
-    pass
-        
-    return render_template('index.html')
+    if request.method == 'POST':
+        username_content = request.form['username']
+        email_content = request.form['email']
+        password_content = request.form['password']
+        password_content_2 = request.form['password2']
+        if Person.is_user_name_taken(username_content):
+            username_validation = False
+            return render_template('info.html',username_validation=username_validation)
+        elif Person.is_email_taken(email_content):
+            email_validation = False
+            return render_template('info.html',email_validation=email_validation)
+        if password_content == password_content_2:
+            new_person = Person(username=username_content, 
+                          password=password_content, 
+                          email=email_content)
+            
+            try:
+                with app.app_context():
+                    db.session.add(new_person)
+                    db.session.commit()
+                    top_headlines = newsapi.get_top_headlines(country="us",language="en")
+                    total_results = top_headlines['totalResults']
+                    if total_results > 100:
+                        total_results = 100
+                    all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
+                    response = make_response(render_template('home.html',all_headlines=all_headlines,new_person=new_person))
+                    response.set_cookie("Person1",username_content)
+                    return response
+            except:
+                return 'There was an issue adding your person'
+        else:
+            validation_password = False
+            return render_template('info.html',validation_password=validation_password)
+    elif request.method == 'GET':
+        return render_template('info.html')
+    return render_template('home.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
