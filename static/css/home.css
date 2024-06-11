@@ -1,0 +1,26 @@
+body{
+    background-color: black; 
+    color:green;
+    
+}
+h1{
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    text-align: center;
+    display: inline-block;
+    position: relative;
+    top: 150px;
+    left: 250px;
+    font-size: 45px;
+}
+p{
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    text-align: center;
+    color: green;
+    display: inline-block;
+    position: relative;
+    top: 250px;
+    right: 375px;
+}
+a{
+    color: green;
+}

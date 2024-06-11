@@ -1,7 +1,11 @@
 from urllib import response
 from flask import Flask, make_response, render_template, render_template_string, url_for, request, redirect,session
+from flask_login import LoginManager, login_required, login_user, logout_user, current_user,UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from eodhd import APIClient
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField
+from wtforms.validators import DataRequired, Email
 import pickle
 import pandas as pd
 import requests
@@ -17,18 +21,31 @@ load_dotenv()
 
 
 app = Flask(__name__)
-app.secret_key = "super secret key"
+app.secret_key = 'super secret key'
 newsapi = NewsApiClient(api_key='230b4a51a01f4de2ba0329e873fa5fe3')
 api = APIClient("6652bd3e397aa5.61249582")
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 db = SQLAlchemy(app)
 
+with app.app_context():
+    db.create_all();
+    db.session.commit();
+
+login_manager = LoginManager()
+login_manager.login_view = "login"
+login_manager.init_app(app)
 person_stocks = db.Table(
     "person_stocks",
     db.Column("person_id",db.Integer, db.ForeignKey("person.id")),
     db.Column("stock_id", db.Integer, db.ForeignKey("stock.id")),
 )
-class Person(db.Model):
+
+class ResetPasswordRequestForm(FlaskForm):
+    email = StringField("Email",validators=[DataRequired(),Email()])
+    submit = SubmitField("Request Password Reset")
+    
+class Person(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100),nullable=False)
@@ -38,7 +55,7 @@ class Person(db.Model):
     stockz = db.relationship('Stock',lazy='subquery', secondary=person_stocks, backref='persons')
     
     def __repr__(self):
-        return f'<Person "{self.name}">'
+        return '<Person %r>' % self.id
     
     @classmethod
     def is_user_name_taken(cls,username):
@@ -66,6 +83,27 @@ class Stock(db.Model):
 
     def __repr__(self):
         return f'<Stock "{self.name}">'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Person.query.get(user_id)
+
+@app.route("/login", methods=['GET','POST'])
+def login():
+    error = None
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        user = Person.query.filter_by(email=email).first()
+        if user:
+            if user.password == password:
+                login_user(user,remember=True)
+                return redirect('/')
+            else:
+                error = "Invalid Credentials. Please try again."
+        else:
+            return "Email does not exist."
+    return render_template("login.html",user=current_user,error=error)
 def get_sources_and_domains():
     all_sources = newsapi.get_sources()['sources']
     sources = []
@@ -83,7 +121,11 @@ def get_sources_and_domains():
     sources = ", ".join(sources)
     domains = ", ".join(domains)
     return sources, domains
-@app.route("/", methods=['GET'])
+
+@app.route("/")
+def home2():
+    return render_template("home2.html")
+@app.route("/news", methods=['GET'])
 def home():
     top_headlines = newsapi.get_top_headlines(country="us",language="en")
     total_results = top_headlines['totalResults']
@@ -192,6 +234,7 @@ def index():
                 with app.app_context():
                     db.session.add(new_person)
                     db.session.commit()
+                    login_user(new_person, remeber=True)
                     top_headlines = newsapi.get_top_headlines(country="us",language="en")
                     total_results = top_headlines['totalResults']
                     if total_results > 100:
@@ -205,9 +248,26 @@ def index():
         else:
             validation_password = False
             return render_template('info.html',validation_password=validation_password)
-    elif request.method == 'GET':
-        return render_template('info.html')
+    else:
+        Person1 = request.cookies.get('Person1')
+        return render_template('info.html',Person1=Person1)
     return render_template('home.html')
+
+@app.route('/delete/<int:id>')
+def delete(id):
+    person_to_delete = Person.query.get_or_404(id)
+    try:
+        db.session.delete(person_to_delete)
+        db.session.commit()
+        return redirect('/info')
+    except: 
+        return 'There was a problem deleting that task'
+    
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect("/")
 
 if __name__ == "__main__":
     app.run(debug=True)

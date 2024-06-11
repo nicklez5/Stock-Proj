@@ -9,12 +9,17 @@
 </head>
 <body>
     <ul>
+        
+        {% if 'Person1' in request.cookies %}
+        <li><a href="/">Logout</a></li>
         <li><a href="/info">About</a></li>
         <li><a href="/stocks">Stock</a></li>
         <li><a href="/">News</a></li>
-        {% if new_person %}
-        <li><a href="/">Welcome {{new_person['username']}}</a></li>
+        <li><a href="/">Welcome {{ request.cookies.get('Person1')}}</a></li>
         {% else %}
+        <li><a href="/info">About</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/">News</a></li>
         <li><a href="/">Home</a></li>
         {% endif %}
 

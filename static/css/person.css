@@ -27,7 +27,7 @@ form.example h1{
     font-size: 20px;
     position: absolute;
     right: 1025px;
-    top: 85px;
+    top: 90px;
     font-family:'Courier New', Courier, monospace
 }
 form.example h2{
@@ -84,4 +84,51 @@ p{
     font-size: 20px;
     bottom: 300px;
     right: 675px;
+}
+#free_template{
+    color: green;
+    position:relative;
+    
+}
+table, td, th {
+    border: 1px solid #aaa;
+    color:green;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th {
+    height: 30px;
+}
+
+td {
+    text-align: center;
+    padding: 5px;
+}
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #23a92e;
+}
+  
+li {
+    float:left;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    
+}
+
+li a:hover {
+    background-color: #111;
 }
