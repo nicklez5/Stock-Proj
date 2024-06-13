@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static',filename='css/login.css')}}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/auth/login.css')}}">
     <title>Login Page</title>
 </head>
 <body style="background-color: black;">
@@ -19,7 +19,7 @@
             <input type="password" placeholder="Password" name="password">
             <button type="submit" class="fa-solid fa-door-open"></button>
         </form>
-        <a href="">Forgot Password?</a>
+        <a href="/reset_password">Forgot Password?</a>
         {% if error %}
         <p class="error"><strong>Error: </strong> {{ error }}</p>
         {% endif %}
