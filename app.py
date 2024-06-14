@@ -6,7 +6,7 @@ from flask_mail import Mail,Message
 from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
-from itsdangerous.url_safe import URLSafeSerializer, URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer
 
 import pickle
 import pandas as pd
@@ -28,12 +28,16 @@ bcrypt = Bcrypt(app)
 app.secret_key = os.getenv('SECRET_KEY_FLASK')
 newsapi = NewsApiClient(os.getenv('news_api'))
 api = APIClient(os.getenv("api_client"))
-app.config['MAIL_SERVER'] = 'live.smtp.mailtrap.io'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USERNAME'] = 'jackson2k@yahoo.com'
-app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PW')
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PW")
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
+mail = Mail(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
-app.config["RESET_PASS_TOKEN_MAX_AGE"] = 600
+app.config["RESET_PASS_TOKEN_MAX_AGE"] = 100000
 db = SQLAlchemy(app)
 
 with app.app_context():
@@ -43,6 +47,7 @@ with app.app_context():
 login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
+
 person_stocks = db.Table(
     "person_stocks",
     db.Column("person_id",db.Integer, db.ForeignKey("person.id")),
@@ -58,10 +63,10 @@ class Person(db.Model, UserMixin):
     date_created = db.Column(db.DateTime, default=datetime.utcnow)
     money = db.Column(db.Integer,default=4000)
     stockz = db.relationship('Stock',lazy='subquery', secondary=person_stocks, backref='persons')
-    
     def generate_reset_password_token(self):
-        serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
-        return serializer.dumps(self.email, salt=bcrypt.generate_password_hash(self.password).decode('utf-8'))
+        serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY_FLASK'))
+        
+        return serializer.dumps(self.email)
     def __repr__(self):
         return '<Person %r>' % self.id
     
@@ -73,6 +78,10 @@ class Person(db.Model, UserMixin):
     def is_email_taken(cls,email):
         return db.session.query(db.exists().where(Person.email==email)).scalar()
 
+    
+    def set_password(self, password2):
+        self._password = password2
+
     def toJSON(self):
         return json.dumps(
             self,
@@ -82,21 +91,24 @@ class Person(db.Model, UserMixin):
         )
     @staticmethod
     def validate_reset_password_token(token: str, user_id: int):
-        user = db.session.get(Person,user_id)
-
+        #user = db.session.get(Person,user_id)
+        user = Person.query.filter_by(id=user_id).first()
+        #print(user)
         if user is None:
             return None
         
-        serializer = URLSafeTimedSerializer(os.getenv("SECRET_KEY"))
+        serializer = URLSafeTimedSerializer(os.getenv("SECRET_KEY_FLASK"))
+        
         try:
             token_user_email = serializer.loads(
-                token,
-                max_age = app.config["RESET_PASS_TOKEN_MAX_AGE"],
-                salt=bcrypt.generate_password_hash(user.password).decode('utf-8')
+                token
             )
+            
         except (BadSignature, SignatureExpired):
+            print("Bad signature")
             return None
         if token_user_email != user.email:
+            print("Something happened here")
             return None
         return user
 class Stock(db.Model):
@@ -121,20 +133,28 @@ def send_reset_password_email(user):
     email_body = render_template_string(
         reset_password_email_html_content,reset_password_url=reset_password_url
     )
-    message = EmailMessage(
+    with mail.connect() as conn:
+        message = Message(
         subject="Reset your password",
-        body=email_body,
-        to=[user.email],
-    )
-    message.content_subtype = "html"
-    message.send()
+        html=email_body,
+        recipients=[user.email],
+        sender=os.getenv("MAIL_USERNAME"))
+
+        conn.send(message)
+    
+    
 
 @app.route("/reset_password/<token>/<int:user_id>", methods=["GET","POST"])
 def reset_password(token,user_id):
     error = None
     if current_user.is_authenticated:
         return redirect("/news")
-    user = Person.validate_reset_passsword_token(token,user_id)
+    user = Person.validate_reset_password_token(token,user_id)
+    user_name = user.username;
+    user_email = user.email;
+    user_date = user.date_created;
+    user_money = user.money;
+    user_stockz = user.stockz;
     if not user:
         error = "User does not exists"
         return render_template("auth/reset_password_error.html",title="Reset Password error",error=error)
@@ -143,18 +163,27 @@ def reset_password(token,user_id):
         password1 = request.form.get("password")
         password2 = request.form.get("password2")
         if password1 == password2:
-            user.set_password(password2)
-            db.session.commit()
-
-            return render_template(
-                "/auth/reset_password_success.html",title="Reset Password Success"
-            )
+            Person.query.filter_by(username=user_name).delete()
+            newperson = Person(id=user.id, username=user_name, password=password2,
+                               email=user_email, date_created = user_date, money = user_money,
+                               stockz = user_stockz
+                               )
+            try:
+                with app.app_context():
+                    db.session.add(newperson)
+                    db.session.commit()
+                    return render_template(
+                        "/auth/reset_password_success.html",title="Reset Password Success"
+                    )
+            except Exception as error:
+                print("An error occured: ", error)
+            
         else:
             error = "None matching passwords"
             return render_template(
                 "/auth/reset_password_error.html", error=error,title="Reset Password Failed"
             )
-    return render_template("/auth/ResetPasswordFinal.html",error=error)
+    return render_template("/auth/ResetPasswordFinal.html",error=error,user=user)
 @app.route("/reset_password", methods=["GET","POST"])
 def reset_password_request():
     error = None
@@ -222,7 +251,7 @@ def home():
         total_results = 100
     all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
     new_person = request.cookies.get('Person1')
-    return render_template("/home/home.html", all_headlines=all_headlines,new_person=new_person)
+    return render_template("/home/home.html", all_headlines=all_headlines,new_person=current_user)
 @app.route('/stocks', methods=['POST', 'GET'])
 def stock():
     if request.method == 'POST':
@@ -304,16 +333,16 @@ def stock():
 @app.route('/info', methods=['POST','GET'])
 def index():
     if request.method == 'POST':
-        username_content = request.form['username']
-        email_content = request.form['email']
-        password_content = request.form['password']
-        password_content_2 = request.form['password2']
+        username_content = request.form.get('username')
+        email_content = request.form.get('email')
+        password_content = request.form.get('password')
+        password_content_2 = request.form.get('password2')
         if Person.is_user_name_taken(username_content):
             username_validation = False
-            return render_template('info.html',username_validation=username_validation)
+            return render_template('/auth/info.html',username_validation=username_validation)
         elif Person.is_email_taken(email_content):
             email_validation = False
-            return render_template('info.html',email_validation=email_validation)
+            return render_template('/auth/info.html',email_validation=email_validation)
         if password_content == password_content_2:
             new_person = Person(username=username_content, 
                           password=password_content, 
@@ -323,17 +352,19 @@ def index():
                 with app.app_context():
                     db.session.add(new_person)
                     db.session.commit()
-                    login_user(new_person, remeber=True)
+                    login_user(new_person, remember=True)
                     top_headlines = newsapi.get_top_headlines(country="us",language="en")
                     total_results = top_headlines['totalResults']
                     if total_results > 100:
                         total_results = 100
                     all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
+                    
                     response = make_response(render_template('/home/home.html',all_headlines=all_headlines,new_person=new_person))
                     response.set_cookie("Person1",username_content)
-                    return response
-            except:
-                return 'There was an issue adding your person'
+                    return render_template('/home/home.html',all_headlines=all_headlines,new_person=new_person)
+            except Exception as error:
+                print("An error occured:", error)
+                
         else:
             validation_password = False
             return render_template('/auth/info.html',validation_password=validation_password)
