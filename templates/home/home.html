@@ -10,12 +10,12 @@
 <body>
     <ul>
         
-        {% if new_person %}
+        {% if current_user %}
         <li><a href="/logout">Logout</a></li>
         <li><a href="/info">About</a></li>
         <li><a href="/stocks">Stock</a></li>
         <li><a href="/news">News</a></li>
-        <li><a href="/">Welcome {{ new_person.username}}</a></li>
+        <li><a href="/">Welcome {{ current_user.username}}</a></li>
         {% else %}
         <li><a href="/info">About</a></li>
         <li><a href="/stocks">Stock</a></li>

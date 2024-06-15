@@ -5,6 +5,30 @@ body {
 * {
     box-sizing: border-box;
 }
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #282727;
+}
+  
+li {
+    float: right;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    
+}
+
+li a:hover {
+    background-color: #111;
+}
 form.example input[type=date] {
     position: relative;
     margin-top: 15px;
@@ -19,15 +43,17 @@ form.example input[type=date] {
 form.example h1{
     display: inline-block;
     left: 425px;
-    top: 100px;
+    display: inline-block;
     position: absolute;
     color: green;
     font-size: 15px;
+    right: 450px;
+    top: 150px;
 }
 form.example h2{
     display: inline-block;
     left: 425px;
-    top: 150px;
+    top: 200px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -35,7 +61,7 @@ form.example h2{
 form.example h3{
     display: inline-block;
     left: 425px;
-    top: 200px;
+    top: 250px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -48,14 +74,15 @@ form.example input[type=text] {
     float: left;
     width: 80%;
     background: #f1f1f1;
-   
+    position: relative;
+    
   }
   
 form.example button {
     margin-top: 30px;
     position: relative;
-    top: 50px;
-    left: 100px;
+    top: 200px;
+    right: 300px;
     width: 20%;
     padding: 12px;
     background: #2196F3;
@@ -83,6 +110,7 @@ form.example::after {
     display: table;
     text-align: center;
     position: relative;
+    top: 100px;
     left: 400px;
     margin-top: 75px;
     background-color: green
@@ -92,12 +120,12 @@ form.example::after {
     margin: auto;
     position: relative;
     text-align: center;
-    padding: 10px;
+    padding-top: 20px;
 }
 #day_label{
     display: inline-block;
     left: 550px;
-    top: 250px;
+    top: 300px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -106,7 +134,7 @@ form.example::after {
 #checkbox_day_label{
     display: inline-block;
     left: 590px;
-    top: 250px;
+    top: 300px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -115,7 +143,7 @@ form.example::after {
 #checkbox_month_label{
     display: inline-block;
     left: 690px;
-    top: 250px;
+    top: 300px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -124,7 +152,7 @@ form.example::after {
 #month_label{
     display: inline-block;
     left: 630px;
-    top: 250px;
+    top: 300px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -133,7 +161,7 @@ form.example::after {
 #checkbox_year_label{
     display: inline-block;
     left: 800px;
-    top: 250px;
+    top: 300px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -142,7 +170,7 @@ form.example::after {
 #year_label{
     display: inline-block;
     left: 750px;
-    top: 250px;
+    top: 300px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -151,7 +179,7 @@ form.example::after {
 #ascending_label{
     display: inline-block;
     left: 500px;
-    top: 275px;
+    top: 325px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -160,7 +188,7 @@ form.example::after {
 #checkbox_asc_label{
     display: inline-block;
     left: 590px;
-    top: 275px;
+    top: 325px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -169,7 +197,7 @@ form.example::after {
 #descending_label{
     display: inline-block;
     left: 625px;
-    top: 275px;
+    top: 325px;
     position: absolute;
     color: green;
     font-size: 15px;
@@ -178,9 +206,15 @@ form.example::after {
 #checkbox_desc_label{
     display: inline-block;
     left: 725px;
-    top: 275px;
+    top: 325px;
     position: absolute;
     color: green;
     font-size: 15px;
     font-weight: bold;
+}
+.img1{
+    display: relative;
+    position: absolute;
+    top: 450px;
+    left: 350px;
 }

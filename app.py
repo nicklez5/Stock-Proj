@@ -7,7 +7,8 @@ from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
 from itsdangerous import URLSafeTimedSerializer
-
+from io import BytesIO 
+import base64
 import pickle
 import pandas as pd
 import requests
@@ -15,7 +16,16 @@ import os
 from dotenv import load_dotenv
 from newsdataapi import NewsDataApiClient
 from newsapi import NewsApiClient
-from datetime import datetime
+
+import datetime
+import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+
+
 
 import json
 from templates.auth.reset_password_email_content import (reset_password_email_html_content)
@@ -60,7 +70,7 @@ class Person(db.Model, UserMixin):
     username = db.Column(db.String(100), nullable=False)
     password = db.Column(db.String(100),nullable=False)
     email = db.Column(db.String(100),nullable=False)
-    date_created = db.Column(db.DateTime, default=datetime.utcnow)
+    date_created = db.Column(db.DateTime, default=datetime.datetime.now())
     money = db.Column(db.Integer,default=4000)
     stockz = db.relationship('Stock',lazy='subquery', secondary=person_stocks, backref='persons')
     def generate_reset_password_token(self):
@@ -116,7 +126,7 @@ class Stock(db.Model):
     name = db.Column(db.String(100),nullable=False)
 
     start_date = db.Column(db.DateTime,default='2023-01-01')
-    end_date = db.Column(db.DateTime,default=datetime.now())
+    end_date = db.Column(db.DateTime,default=datetime.datetime.now())
 
 
 
@@ -150,33 +160,28 @@ def reset_password(token,user_id):
     if current_user.is_authenticated:
         return redirect("/news")
     user = Person.validate_reset_password_token(token,user_id)
-    user_name = user.username;
-    user_email = user.email;
-    user_date = user.date_created;
-    user_money = user.money;
-    user_stockz = user.stockz;
     if not user:
         error = "User does not exists"
         return render_template("auth/reset_password_error.html",title="Reset Password error",error=error)
-    error = None
     if request.method == "POST":
         password1 = request.form.get("password")
         password2 = request.form.get("password2")
         if password1 == password2:
-            Person.query.filter_by(username=user_name).delete()
-            newperson = Person(id=user.id, username=user_name, password=password2,
-                               email=user_email, date_created = user_date, money = user_money,
-                               stockz = user_stockz
-                               )
+            
             try:
                 with app.app_context():
-                    db.session.add(newperson)
+                    email = user.email;
+                    user2 = Person.query.filter_by(email=email).first()
+                    user2.password = password2
+                    session['username'] = user2.username
                     db.session.commit()
                     return render_template(
-                        "/auth/reset_password_success.html",title="Reset Password Success"
+                        "/auth/reset_password_success.html",title="Reset Password Success", current_user=user2
                     )
-            except Exception as error:
-                print("An error occured: ", error)
+            except Exception as err: 
+                print(f"Unexpected {err=}, {type(err)=}")
+                raise
+                
             
         else:
             error = "None matching passwords"
@@ -199,7 +204,56 @@ def reset_password_request():
 
 
     return render_template("/auth/ResetPassword.html",error=error)
+
+def df_to_windowed_df(dataframe, first_date_str, last_date_str,n=3):
+    first_date = str_to_datetime(first_date_str)
+    last_date = str_to_datetime(last_date_str)
+    target_date = first_date
+
+    dates = []
+    X,Y = [], []
+
+    last_time = False
+    while True:
+        df_subset = dataframe.loc[:target_date].tail(n+1)
+
+        if len(df_subset) != n+1:
+            print(f'Error: Window of size {n} is too large for date {target_date}')
+            return
+        
+        values = df_subset['close'].to_numpy()
+        x,y = values[:-1], values[-1]
+
+        dates.append(target_date)
+        X.append(x)
+        Y.append(y)
+
+        next_week = dataframe.loc[target_date:target_date + datetime.timedelta(days=7)]
+        next_datetime_str = str(next_week.head(2).tail(1).index.values[0])
+        next_date_str = next_datetime_str.split('T')[0]
+        year_month_day = next_date_str.split('-')
+        year, month, day = year_month_day
+
+        next_date = datetime.datetime(day=int(day), month=int(month), year=int(year))
+
+        if last_time:
+            break
+
+        target_date = next_date
+
+        if target_date == last_date:
+            last_time = True
+
+    ret_df = pd.DataFrame({})
+    ret_df['Target Date'] = dates
+
+    X = np.array(X)
+    for i in range(0,n):
+        X[:, i]
+        ret_df[f'Target-{n-i}'] = X[:,i]
     
+    ret_df['Target'] = Y
+    return ret_df
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -250,10 +304,18 @@ def home():
     if total_results > 100:
         total_results = 100
     all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
-    new_person = request.cookies.get('Person1')
-    return render_template("/home/home.html", all_headlines=all_headlines,new_person=current_user)
+    username = session['username']
+    new_user = Person.query.filter_by(username=username).first()
+    return render_template("/home/home.html", all_headlines=all_headlines,current_user = new_user)
+
+def str_to_datetime(s):
+    split = s.split('-')
+    year, month,day = int(split[0]), int(split[1]), int(split[2])
+    return datetime.datetime(year=year,month=month,day=day)
+
 @app.route('/stocks', methods=['POST', 'GET'])
 def stock():
+    current_time = None;
     if request.method == 'POST':
         stock_name = request.form.get('keyword2')
         from_date = request.form.get('from_date')
@@ -262,72 +324,277 @@ def stock():
         order = request.form.getlist('order')
         if "d" in period:
             if "a" in order:
+                img = BytesIO()
+
+                ## Get the data from stock api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a')
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
+
+                #Load the data into f
                 f = open('sample.json',)
                 data = json.load(f)
-                df = pd.DataFrame.from_dict(data)
-                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
-                temp_stock = Stock(name=stock_name,start_date=from_date,end_date = to_date)
+
+                #df = pd.DataFrame.from_dict(data)
+                df = pd.DataFrame(data)
+                csv_file = "output.csv"
+
+                df.to_csv(csv_file,index=False)
+                df = pd.read_csv("output.csv")
+                df = df[['date','close']]
+                df['date'] = df['date'].apply(str_to_datetime)
+                df.index = df.pop('date')
+
+                #Plot 
+                plt.plot(df.index, df['close'])
                 
-                return render_template('/stocks/stock.html',my_table=my_table)
+                #Save the plotting image
+                plt.savefig(img, format='png')
+                plt.close()
+                img.seek(0)
+
+
+                #Plot url
+                plot_url = base64.b64encode(img.getvalue()).decode('utf8')
+                
+                #df.to_csv("stock.csv",sep="\t")
+                #my_table = df.to_html(classes=['date','close'])
+                
+                #df = pd.read_csv('stock.csv')
+                
+                windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                result = windowed_df.to_html()
+                print(result)
+                return render_template('/stocks/stock.html',plot_url=plot_url)
             elif "d" in order:
+                img = BytesIO
+
+                #Get the data from api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='d')
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
                 f = open('sample.json',)
                 data = json.load(f)
-                df = pd.DataFrame.from_dict(data)
-                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+
+                #Put the data to a dictionary
+                #df = pd.DataFrame.from_dict(data)
+                df = pd.DataFrame(data)
+                csv_file = "output.csv"
+                df.to_csv(csv_file,index=False)
+                df = pd.read_csv("output.csv")
+                df = df[['date','close']]
+                df['date'] = df['date'].apply(str_to_datetime)
+                df.index = df.pop('date')
+
+                #Plot
+                plt.plot(df.index, df['close'])
                 
-                return render_template('/stocks/stock.html',my_table=my_table)
+                #plt.show()
+                plt.savefig(img,format='png')
+                plt.close()
+                img.seek(0)
+
+                #Plot url
+                plot_url = base64.b64encode(img.getvalue()).decode('utf8')
+
+                #dataframe to csv
+                #df.to_csv("stock.csv",sep="\t")
+
+                #Unnecessary table for printing it out from CRUD
+                #my_table = df.to_html(classes=['date','close'])
+                #df = pd.read_csv('stock.csv')
+                windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                result = windowed_df.to_html()
+                print(result)
+                return render_template('/stocks/stock.html',plot_url= plot_url)
         elif 'm' in period:
                 if "a" in order:
+                    #Get img
+                    img = BytesIO
+
+                    #Get data from api
                     resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date,order='a')
                     with open("sample.json","w") as outfile:
                         json.dump(resp,outfile)
                     f = open('sample.json',)
                     data = json.load(f)
-                    df = pd.DataFrame.from_dict(data)
-                    my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
+
+                    #Put that data into a dictionary aka dataframe
+                    #df = pd.DataFrame.from_dict(data)
+
+                    df = pd.DataFrame(data)
+                    csv_file = "output.csv"
+                    df.to_csv(csv_file,index=False)
+                    df = pd.read_csv("output.csv")
+                    df = df[['date','close']]
+                    df['date'] = df['date'].apply(str_to_datetime)
+                    df.index = df.pop('date')
                     
-                    return render_template('/stocks/stock.html',my_table=my_table)
+                    #Plot
+                    plt.plot(df.index, df['close'])
+                    
+                    #Save the plot and insert it into html
+                    plt.savefig(img,format='png')
+                    plt.close()
+                    img.seek(0)
+
+                    #Plot url
+                    plot_url = base64.b64encode(img.getvalue()).decode('utf-8')
+
+                    #Dataframe to csv
+                    #df.to_csv("stock.csv",sep="\t")
+                    #my_table = df.to_html(classes=['date','close'])
+
+                    #read the csv into dataframe 
+                    #df = pd.read_csv('stock.csv')
+
+                    #Convert the dataframe into a windowed dataframe
+                    windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+
+                    #Put that windowed dataframe into html
+                    result = windowed_df.to_html()
+                    print(result)   
+                    return render_template('/stocks/stock.html', plot_url=plot_url)
                 elif "d" in order:
+
+                    #Get img
+                    img = BytesIO()
+
+                    #Get data from api
                     resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date,order='d')
                     with open("sample.json","w") as outfile:
                         json.dump(resp,outfile)
+
+                    #Load the data into f
                     f = open('sample.json',)
                     data = json.load(f)
-                    df = pd.DataFrame.from_dict(data)
-                    my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
-                    
-                    return render_template('/stocks/stock.html',my_table=my_table)
+
+                    #df = pd.DataFrame.from_dict(data)
+                    df = pd.DataFrame(data)
+                    csv_file = "output.csv"
+                    df.to_csv(csv_file,index=False)
+                    df = pd.read_csv(csv_file)
+                    df = df[['date','close']]
+                    df['date'] = df['date'].apply(str_to_datetime)
+                    df.index = df.pop('date')
+
+                    #Plot the points on the dataframe
+                    plt.plot(df.index, df['close'])
+                    #plt.show()
+
+                    #Plot save the figure in the png format
+                    plt.savefig(img,format='png')
+                    plt.close()
+
+
+                    img.seek(0)
+
+                    #Plot url
+                    plot_url = base64.b64encode(img.getvalue()).decode('utf8')
+
+                    #Dataframe to csv
+                    #df.to_csv("stock.csv",sep="\t")
+                    #my_table = df.to_html(classes=['date','close'])
+
+                    #
+                    #df = pd.read_csv('stock.csv')
+
+                    windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                    result = windowed_df.to_html()
+                    print(result)
+                    return render_template('/stocks/stock.html', plot_url=plot_url)
         elif "y" in period:
             if "a" in order:
+
+                #image 
+                img = BytesIO
+
+                #Get data from api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='y',from_date=from_date,to_date=to_date,order='a')
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
+
+                #Load the data into f
                 f = open('sample.json',)
+
+                #Load the data from file 
                 data = json.load(f)
-                df = pd.DataFrame.from_dict(data)
-                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
-                print(data)
-                return render_template('/stocks/stock.html',my_table=my_table)
+
+                #Data into a dataframe
+                df = pd.DataFrame(data)
+                csv_file = "output.csv"
+                df.to_csv(csv_file,index=False)
+                df = pd.read_csv(csv_file)
+                df = df[['date','close']]
+                df['date'] = df['date'].apply(str_to_datetime)
+                df.index = df.pop('date')
+
+                #Plot
+                plt.plot(df.index, df['close'])
+                
+                #Save the plotting image
+                plt.savefig(img, format='png')
+                plt.close()
+                img.seek(0)
+
+                #put the url into the html
+                plot_url = base64.b64encode(img.getvalue()).decode('utf8')
+                #my_table = df.to_html(classes=['date','close'])
+
+                #read stock.csv 
+                #df = pd.read_csv('stock.csv')
+                windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                result = windowed_df.to_html()
+
+                
+                print(result)
+                
+                return render_template('/stocks/stock.html', plot_url=plot_url)
             elif "d" in order:
+                img = BytesIO
+
+                #Get the data from api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='y',from_date=from_date,to_date=to_date,order='d')
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
                 f = open('sample.json',)
                 data = json.load(f)
-                df = pd.DataFrame.from_dict(data)
-                my_table = df.to_html(classes=['date','open','high','low','close','adjusted close','volume'])
-                print(data)
-                return render_template('/stocks/stock.html',my_table=my_table)
+                #Put that data to a dictionary
+                df = pd.DataFrame(data)
+                csv_file = "output.csv"
+                df.to_csv(csv_file, index=False)
+                df = pd.read_csv(csv_file)
+                df = df[['date','close']]
+                df['date'] = df['date'].apply(str_to_datetime)
+                df.index = df.pop('date')
+
+                #Plot
+                plt.plot(df.index, df['close'])
+                
+                #plt.show()
+                plt.savefig(img, format='png')
+                plt.close()
+                img.seek(0)
+
+                #Plot url
+                plot_url = base64.b64encode(img.getvalue()).decode('utf8')
+                
+                
+                #my_table = df.to_html(classes=['date','close'])
+                #df = pd.read_csv('stock.csv')
+                windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                result = windowed_df.to_html()
+                print(result)
+                
+                return render_template('/stocks/stock.html',plot_url=plot_url)
             
     elif request.method == 'GET':
         empty_table = []
-        return render_template('/stocks/stock.html',my_table=empty_table)
+        username = session["username"]
+        date = datetime.datetime.now()
+        
+        new_user = Person.query.filter_by(username=username).first()
+        return render_template('/stocks/stock.html',my_table=empty_table,current_user=new_user,date=date)
     return render_template('/stocks/stock.html')
 
 @app.route('/info', methods=['POST','GET'])

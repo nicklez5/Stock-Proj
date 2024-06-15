@@ -10,6 +10,20 @@
 <body style="background-color: black">
     {% block body %}
     <script src="https://kit.fontawesome.com/e50577ab3f.js" crossorigin="anonymous"></script>
+    <ul>
+        {% if current_user %}
+        <li><a href="/logout">Logout</a></li>
+        <li><a href="/info">About</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/news">News</a></li>
+        <li><a href="/">Welcome {{ current_user.username}}</a></li>
+        {% else %}
+        <li><a href="/info">About</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/news">News</a></li>
+        <li><a href="/">Home</a></li>
+        {% endif %}
+    </ul>
     <h1 id="header_stock">Stocks</h1>  
     
     <div>
@@ -17,9 +31,9 @@
                 <h1>Name</h1>
                 <input type="text" placeholder="Search name of company" name="keyword2" >
                 <h2>Start</h2>
-                <input type="date" id="stock-time" name="from_date" value="1993-03-27" min="1993-03-11" max="2024-06-03">
+                <input type="date" id="stock-time" name="from_date" value="1993-03-27" min="1993-03-11" max=str(date)>
                 <h3>End</h3>
-                <input type="date" id="stock-time" name="to_date" value="2018-06-12" min="1993-06-12" max="2024-06-03">
+                <input type="date" id="stock-time" name="to_date" value="2018-06-12" min="1993-06-12" max=str(date)>
                 <input type="checkbox" id="checkbox_day_label" name="period" value="d">
                 <label for="utc_day" id="day_label">Day</label><br>
                 <input type="checkbox" id="checkbox_month_label" name="period" value="m">
@@ -39,9 +53,8 @@
 
             </form>
         
-        <div id="table_form">
-            {{ my_table | safe}}
-        </div>
+        
+        <img src="data:image/png;base64, {{ plot_url}}" class="img1"/>
     </div>
     
     {% endblock %}
