@@ -8,6 +8,7 @@ from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
 from itsdangerous import URLSafeTimedSerializer
+from IPython.display import display
 from io import BytesIO 
 import base64
 import pickle
@@ -207,58 +208,60 @@ def reset_password_request():
 
     return render_template("/auth/ResetPassword.html",error=error)
 
-def df_to_windowed_df(dataframe, first_date_str, last_date_str,n=3):
-    first_date = str_to_datetime(first_date_str)
-    last_date = str_to_datetime(last_date_str)
-    target_date = first_date
+def df_to_windowed_df(dataframe, first_date_str, last_date_str, n):
+  first_date = str_to_datetime(first_date_str)
+  last_date  = str_to_datetime(last_date_str)
+  
+  target_date = first_date
+  dates = []
+  X, Y = [], []
 
-    dates = []
-    X,Y = [], []
+  last_time = False
+  while True:
+    df_subset = dataframe.loc[:target_date].tail(n+1)
+    print(len(df_subset))
+    print(n)
+    if len(df_subset) <= n+1:
+      print(f'Error: Window of size {n} is too large for date {target_date}')
+      return
 
-    last_time = False
-    while True:
-        df_subset = dataframe.loc[:target_date].tail(n+1)
+    values = df_subset['close'].to_numpy()
+    x, y = values[:-1], values[-1]
 
-        if len(df_subset) != n+1:
-            print(f'Error: Window of size {n} is too large for date {target_date}')
-            return
-        
-        values = df_subset['close'].to_numpy()
-        x,y = values[:-1], values[-1]
+    dates.append(target_date)
+    X.append(x)
+    Y.append(y)
 
-        dates.append(target_date)
-        X.append(x)
-        Y.append(y)
-
-        next_week = dataframe.loc[target_date:target_date + datetime.timedelta(days=7)]
-        next_datetime_str = str(next_week.head(2).tail(1).index.values[0])
-        next_date_str = next_datetime_str.split('T')[0]
-        year_month_day = next_date_str.split('-')
-        year, month, day = year_month_day
-
-        next_date = datetime.datetime(day=int(day), month=int(month), year=int(year))
-
-        if last_time:
-            break
-
-        target_date = next_date
-
-        if target_date == last_date:
-            last_time = True
-
-    ret_df = pd.DataFrame({})
-    ret_df['Target Date'] = dates
-
-    X = np.array(X)
-    for i in range(0,n):
-        X[:, i]
-        ret_df[f'Target-{n-i}'] = X[:,i]
+    next_week = dataframe.loc[target_date:target_date+datetime.timedelta(days=7)]
+    next_datetime_str = str(next_week.head(2).tail(1).index.values[0])
+    next_date_str = next_datetime_str.split('T')[0]
+    year_month_day = next_date_str.split('-')
+    year, month, day = year_month_day
+    next_date = datetime.datetime(day=int(day), month=int(month), year=int(year))
     
-    ret_df['Target'] = Y
-    return ret_df
+    if last_time:
+      break
+    
+    target_date = next_date
+
+    if target_date == last_date:
+      last_time = True
+    
+  ret_df = pd.DataFrame({})
+  ret_df['Target Date'] = dates
+  
+  X = np.array(X)
+  for i in range(0, n):
+    X[:, i]
+    ret_df[f'Target-{n-i}'] = X[:, i]
+  
+  ret_df['Target'] = Y
+
+  return ret_df
 
 @login_manager.user_loader
 def load_user(user_id):
+    return db.session.get(Person,user_id)
     return Person.query.get(user_id)
 
 @app.route("/login", methods=['GET','POST'])
@@ -329,7 +332,8 @@ def stock():
                 bytes_me = io.BytesIO()
 
                 ## Get the data from stock api
-                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a')
+                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a',fmt=json)
+                #resp = api.get_live_stock_prices(date_from=from_date, date_to=to_date, ticker=stock_name)
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
 
@@ -343,13 +347,19 @@ def stock():
 
                 df.to_csv(csv_file,index=False)
                 df = pd.read_csv("output.csv")
+                
                 df = df[['date','close']]
+                
                 df['date'] = df['date'].apply(str_to_datetime)
                 
                 df.index = df.pop('date')
-
-                #Plot 
+                
                 plt.plot(df.index, df['close'])
+                print(df)
+                windowed_df = df_to_windowed_df(df,from_date,to_date,n=3)
+                print(windowed_df)
+                #Plot 
+                
                 
                 #Save the plotting image
                 plt.title("Stock")
@@ -361,31 +371,19 @@ def stock():
                 my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
                 plt.close()
                 
-                
-                
-                
-                
-
-
-                #Plot url
-               
-                
-                #df.to_csv("stock.csv",sep="\t")
                 my_table = df.to_html(classes=['date','close'])
                 
-                #df = pd.read_csv('stock.csv')
-                
                 #Same as here
-                #windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                 #result = windowed_df.to_html()
-                #print(result)
+                #print(windowed_df)
                 #df = pd.DataFrame.from_dict(data)
                 #my_table = df.to_html(classes=['date','open','high','low','close','adjusted_close','volume'])
                 temp_stock = Stock(name=stock_name,start_date=from_date,end_date=to_date)
 
 
                 #This was the first option
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData)
+                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
 
                 #return render_template('/stocks/stock.html',my_table=my_table)
             elif "d" in order:
@@ -431,11 +429,11 @@ def stock():
                 my_table = df.to_html(classes=['date','close'])
                 #df = pd.read_csv('stock.csv')
                 
-                #windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                 #result = windowed_df.to_html()
-                #print(result)
+                #print(windowed_df)
                 #
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData)
+                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
         elif 'w' in period:
                 if "a" in order:
                     #Get img
@@ -483,12 +481,11 @@ def stock():
                     #df = pd.read_csv('stock.csv')
 
                     #Convert the dataframe into a windowed dataframe
-                    #windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
-
-                    #Put that windowed dataframe into html
+                    #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                     #result = windowed_df.to_html()
+                    #print(windowed_df)
                     #print(result)   
-                    return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData)
+                    return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
                     #return render_template('/stocks/stock.html',my_table=my_table)
                 elif "d" in order:
 
@@ -538,10 +535,10 @@ def stock():
                     #
                     #df = pd.read_csv('stock.csv')
 
-                    #windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                    #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                     #result = windowed_df.to_html()
-                    #print(result)
-                    return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData)
+                    #print(windowed_df)
+                    return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
 
         elif "m" in period:
             if "a" in order:
@@ -588,13 +585,14 @@ def stock():
 
                 #read stock.csv 
                 #df = pd.read_csv('stock.csv')
-                #windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                 #result = windowed_df.to_html()
+                #print(windowed_df)
 
                 
                 #print(result)
                 
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData)
+                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
 
                 #return render_template('/stocks/stock.html', my_table=my_table)
             elif "d" in order:
@@ -617,9 +615,12 @@ def stock():
                 df = df[['date','close']]
                 df['date'] = df['date'].apply(str_to_datetime)
                 df.index = df.pop('date')
-
-                #Plot
                 plt.plot(df.index, df['close'])
+                #from_date = '2021-03-25'
+                #to_date = '2022-03-23'
+                windowed_df = df_to_windowed_df(df,from_date,to_date,n=3)
+                print(windowed_df)
+                #Plot
                 
                 plt.title("Stock")
                 plt.xlabel("Time")
@@ -627,9 +628,19 @@ def stock():
                 plt.savefig(bytes_me,format="png")
                 bytes_me.seek(0)
                 my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+
                 plt.close()
+
+                # df = pd.DataFrame()
+                # df = pd.read_csv("MSFT(3).csv")
                 
-                
+                # df = df[['Date','Close']]
+                # df['Date'] = df['Date'].apply(str_to_datetime)
+                # df.index = df.pop('Date')
+                # from_date = '2022-03-28'
+                # to_date = "2023-06-12"
+                # windowed_df = df_to_windowed_df(df,from_date,to_date,n=3)
+                # print(windowed_df)
                     
                 #Plot url
                 #plot_url = base64.b64encode(img.getvalue()).decode('utf8')
@@ -637,20 +648,21 @@ def stock():
                 
                 #my_table = df.to_html(classes=['date','close'])
                 #df = pd.read_csv('stock.csv')
-                #windowed_df = df_to_windowed_df(df,'2022-03-28', '2023-06-12', n=3)
+                #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                 #result = windowed_df.to_html()
-                #print(result)
+                #print(windowed_df)
                 
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData)
+                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
 
             
-    elif request.method == 'GET':
+    else:
         empty_table = []
         username = session["username"]
-        date = datetime.datetime.now()
+        print(username)
+        #date = datetime.datetime.now()
         
         new_user = Person.query.filter_by(username=username).first()
-        return render_template('/stocks/stock.html',my_table=empty_table,current_user=new_user,date=date)
+        return render_template('/stocks/stock.html',current_user=new_user)
     return render_template('/stocks/stock.html')
 
 @app.route('/info', methods=['POST','GET'])

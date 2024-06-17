@@ -31,19 +31,19 @@
                 <h1>Name</h1>
                 <input type="text" placeholder="Search name of company" name="keyword2" >
                 <h2>Start</h2>
-                <input type="date" id="stock-time" name="from_date" value="1993-03-27" min="1993-03-11" max=str(date)>
+                <input type="date" id="stock-time" name="from_date" value="1986-03-18" min="1986-03-11" max=str(date)>
                 <h3>End</h3>
-                <input type="date" id="stock-time" name="to_date" value="2018-06-12" min="1993-06-12" max=str(date)>
+                <input type="date" id="stock-time" name="to_date" value="2022-03-23" min="1993-06-12" max=str(date)>
                 <input type="checkbox" id="checkbox_day_label" name="period" value="d">
                 <label for="utc_day" id="day_label">Day</label><br>
                 <input type="checkbox" id="checkbox_week_label" name="period" value="w">
                 <label for="utc_month" id="week_label">Week</label>
                 <input type="checkbox" id="checkbox_month_label" name="period" value="m">
                 <label for="utc_year" id="month_label">Month</label>
-                <label for="ascending" id="ascending_label">Ascending</label>
+                <label for="ascending" id="ascending_label">Ascending Dates</label>
                 <br>
                 <input type="checkbox" id="checkbox_asc_label" name="order" value="a">
-                <label for="descending" id="descending_label">Descending</label>
+                <label for="descending" id="descending_label">Descending Dates</label>
                 
                 <input type="checkbox" id="checkbox_desc_label" name="order" value="d">
 
@@ -53,7 +53,7 @@
 
             </form>
         
-        
+            <p style="color:green; position: absolute; left: 175px; bottom: 10px;">Stock Name: {{stock_name}}</p>
             <img src="data:image/png;base64, {{ my_base64_pngData}}" class="img1"/> 
            
         </div>
