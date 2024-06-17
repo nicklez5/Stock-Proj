@@ -140,7 +140,7 @@ form.example::after {
     font-size: 15px;
     font-weight: bold;
 }
-#checkbox_month_label{
+#checkbox_week_label{
     display: inline-block;
     left: 690px;
     top: 300px;
@@ -149,7 +149,7 @@ form.example::after {
     font-size: 15px;
     font-weight: bold;
 }
-#month_label{
+#week_label{
     display: inline-block;
     left: 630px;
     top: 300px;
@@ -158,7 +158,7 @@ form.example::after {
     font-size: 15px;
     font-weight: bold;
 }
-#checkbox_year_label{
+#checkbox_month_label{
     display: inline-block;
     left: 800px;
     top: 300px;
@@ -167,7 +167,7 @@ form.example::after {
     font-size: 15px;
     font-weight: bold;
 }
-#year_label{
+#month_label{
     display: inline-block;
     left: 750px;
     top: 300px;
@@ -217,4 +217,6 @@ form.example::after {
     position: absolute;
     top: 450px;
     left: 350px;
+    width: 500px;
+    height: 500px;
 }

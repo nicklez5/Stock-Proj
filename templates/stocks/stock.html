@@ -36,10 +36,10 @@
                 <input type="date" id="stock-time" name="to_date" value="2018-06-12" min="1993-06-12" max=str(date)>
                 <input type="checkbox" id="checkbox_day_label" name="period" value="d">
                 <label for="utc_day" id="day_label">Day</label><br>
+                <input type="checkbox" id="checkbox_week_label" name="period" value="w">
+                <label for="utc_month" id="week_label">Week</label>
                 <input type="checkbox" id="checkbox_month_label" name="period" value="m">
-                <label for="utc_month" id="month_label">Month</label>
-                <input type="checkbox" id="checkbox_year_label" name="period" value="y">
-                <label for="utc_year" id="year_label">Year</label>
+                <label for="utc_year" id="month_label">Month</label>
                 <label for="ascending" id="ascending_label">Ascending</label>
                 <br>
                 <input type="checkbox" id="checkbox_asc_label" name="order" value="a">
@@ -54,9 +54,13 @@
             </form>
         
         
-        <img src="data:image/png;base64, {{ plot_url}}" class="img1"/>
-    </div>
+            <img src="data:image/png;base64, {{ my_base64_pngData}}" class="img1"/> 
+           
+        </div>
     
+    <!--<div id="table_form">
+        {{ my_table | safe}}
+    </div> -->
     {% endblock %}
 </body>
 </html>
