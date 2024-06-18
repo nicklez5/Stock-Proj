@@ -332,8 +332,7 @@ def stock():
                 bytes_me = io.BytesIO()
 
                 ## Get the data from stock api
-                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a',fmt=json)
-                #resp = api.get_live_stock_prices(date_from=from_date, date_to=to_date, ticker=stock_name)
+                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a')
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
 
@@ -349,7 +348,7 @@ def stock():
                 df = pd.read_csv("output.csv")
                 
                 df = df[['date','close']]
-                
+               
                 df['date'] = df['date'].apply(str_to_datetime)
                 
                 df.index = df.pop('date')
