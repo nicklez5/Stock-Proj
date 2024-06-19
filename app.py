@@ -4,6 +4,14 @@ from flask import Flask, flash, make_response, render_template, render_template_
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user,UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail,Message
+import tensorflow as tf
+import keras
+from keras import layers
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import layers
+from copy import deepcopy
+
+
 from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
@@ -15,7 +23,7 @@ import pickle
 import pandas as pd
 import requests
 import os
-
+import csv,re
 from dotenv import load_dotenv
 from newsdataapi import NewsDataApiClient
 from newsapi import NewsApiClient
@@ -208,24 +216,24 @@ def reset_password_request():
 
     return render_template("/auth/ResetPassword.html",error=error)
 
-def df_to_windowed_df(dataframe, first_date_str, last_date_str, n):
+def df_to_windowed_df(dataframe, first_date_str, last_date_str, n=3):
   first_date = str_to_datetime(first_date_str)
   last_date  = str_to_datetime(last_date_str)
-  
+
   target_date = first_date
+  
   dates = []
   X, Y = [], []
 
   last_time = False
   while True:
     df_subset = dataframe.loc[:target_date].tail(n+1)
-    print(len(df_subset))
-    print(n)
-    if len(df_subset) <= n+1:
+    
+    if len(df_subset) != n+1:
       print(f'Error: Window of size {n} is too large for date {target_date}')
       return
 
-    values = df_subset['close'].to_numpy()
+    values = df_subset['Close'].to_numpy()
     x, y = values[:-1], values[-1]
 
     dates.append(target_date)
@@ -318,6 +326,127 @@ def str_to_datetime(s):
     year, month,day = int(split[0]), int(split[1]), int(split[2])
     return datetime.datetime(year=year,month=month,day=day)
 
+def plotting_diagram(stock_name, from_date, to_date,period, order):
+    bytes_me = io.BytesIO()
+    url = f'https://eodhd.com/api/eod/{stock_name}.US?api_token={os.getenv("api_client")}&fmt=csv'
+    data  = requests.get(url).content
+    data = data.decode("utf-8").splitlines()
+    filename = "output.csv"
+    with open(filename,"w") as csv_file:
+        writer = csv.writer(csv_file,delimiter="\n")
+        for line in data:
+            if not line.isspace():
+                writer.writerow(re.split('\s+',line))
+    df = pd.read_csv(filename)
+    df = df[['Date','Close']]
+    
+    df['Date'] = df['Date'].apply(str_to_datetime)
+    df.index = df.pop('Date')
+    plt.plot(df.index,df['Close'])
+    plt.show()
+    windowed_df = df_to_windowed_df(df, 
+                    from_date, 
+                    to_date, 
+                    n=3)
+    dates, X, y = windowed_df_to_date_X_y(windowed_df)
+
+    dates.shape, X.shape, y.shape
+    q_80 = int(len(dates) * .8)
+    q_90 = int(len(dates) * .9)
+
+    dates_train, X_train, y_train = dates[:q_80], X[:q_80], y[:q_80]
+
+    dates_val, X_val, y_val = dates[q_80:q_90], X[q_80:q_90], y[q_80:q_90]
+    dates_test, X_test, y_test = dates[q_90:], X[q_90:], y[q_90:]
+
+    plt.plot(dates_train, y_train)
+    plt.plot(dates_val, y_val)
+    plt.plot(dates_test, y_test)
+
+    plt.legend(['Train', 'Validation', 'Test']) 
+    
+
+    model = keras.Sequential([layers.Input((3, 1)),
+        layers.LSTM(64),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(1)])
+
+    model.compile(loss='mse', 
+                    optimizer=Adam(learning_rate=0.001),
+                    metrics=['mean_absolute_error'])
+
+    model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100)
+
+    train_predictions = model.predict(X_train).flatten()
+
+    plt.plot(dates_train, train_predictions)
+    plt.plot(dates_train, y_train)
+    plt.legend(['Training Predictions', 'Training Observations'])
+    plt.savefig(fname="training_predictions.png")
+
+    val_predictions = model.predict(X_val).flatten()
+
+    plt.plot(dates_val, val_predictions)
+    plt.plot(dates_val, y_val)
+    plt.legend(['Validation Predictions', 'Validation Observations'])
+    plt.savefig(fname="validation_predictions.png")
+
+    test_predictions = model.predict(X_test).flatten()
+
+    plt.plot(dates_test, test_predictions)
+    plt.plot(dates_test, y_test)
+    plt.legend(['Testing Predictions', 'Testing Observations'])
+    plt.savefig(fname="testing_predictions.png")
+
+    plt.plot(dates_train, train_predictions)
+    plt.plot(dates_train, y_train)
+    plt.plot(dates_val, val_predictions)
+    plt.plot(dates_val, y_val)
+    plt.plot(dates_test, test_predictions)
+    plt.plot(dates_test, y_test)
+    plt.legend(['Training Predictions', 
+                'Training Observations',
+                'Validation Predictions', 
+                'Validation Observations',
+                'Testing Predictions', 
+                'Testing Observations'])
+    plt.savefig(fname="all.png")
+    recursive_predictions = []
+    recursive_dates = np.concatenate([dates_val, dates_test])
+    last_window_new =  deepcopy(X_train[-1])
+
+    for target_date in recursive_dates:
+        next_prediction = model.predict(np.array([last_window_new])).flatten()
+        recursive_predictions.append(next_prediction)
+        last_window_new[0] = last_window_new[1]
+        last_window_new[1] = last_window_new[2]
+        last_window_new[-1] = next_prediction
+    print("Training data")
+    print(X_train[-2:])
+    print("Prediction for this stock: ")
+    print(np.array([last_window_new]))
+    plt.plot(dates_train, train_predictions)
+    plt.plot(dates_train, y_train)
+    plt.plot(dates_val, val_predictions)
+    plt.plot(dates_val, y_val)
+    plt.plot(dates_test, test_predictions)
+    plt.plot(dates_test, y_test)
+    plt.plot(recursive_dates, recursive_predictions)
+    plt.legend(['Training Predictions', 
+                'Training Observations',
+                'Validation Predictions', 
+                'Validation Observations',
+                'Testing Predictions', 
+                'Testing Observations',
+                'Recursive Predictions'])
+    plt.savefig(fname="final.png")
+    plt.savefig(bytes_me,format="png")
+    bytes_me.seek(0)
+    final_img = base64.b64encode(bytes_me.read()).decode()
+    
+    
+    return (np.array([last_window_new]),final_img)
 @app.route('/stocks', methods=['POST', 'GET'])
 def stock():
     current_time = None;
@@ -329,9 +458,12 @@ def stock():
         order = request.form.getlist('order')
         if "d" in period:
             if "a" in order:
+                
                 bytes_me = io.BytesIO()
-
+                true_value, final_img= plotting_diagram(stock_name,from_date,to_date,period,order)
+                
                 ## Get the data from stock api
+                
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a')
                 with open("sample.json","w") as outfile:
                     json.dump(resp,outfile)
@@ -348,18 +480,10 @@ def stock():
                 df = pd.read_csv("output.csv")
                 
                 df = df[['date','close']]
-               
                 df['date'] = df['date'].apply(str_to_datetime)
-                
                 df.index = df.pop('date')
-                
-                plt.plot(df.index, df['close'])
-                print(df)
-                windowed_df = df_to_windowed_df(df,from_date,to_date,n=3)
-                print(windowed_df)
+                plt.plot(df.index, df['close'])       
                 #Plot 
-                
-                
                 #Save the plotting image
                 plt.title("Stock")
                 plt.xlabel("Time")
@@ -367,10 +491,9 @@ def stock():
                 
                 plt.savefig(bytes_me,format="png")
                 bytes_me.seek(0)
-                my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+                my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
                 plt.close()
                 
-                my_table = df.to_html(classes=['date','close'])
                 
                 #Same as here
                 #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
@@ -378,16 +501,18 @@ def stock():
                 #print(windowed_df)
                 #df = pd.DataFrame.from_dict(data)
                 #my_table = df.to_html(classes=['date','open','high','low','close','adjusted_close','volume'])
-                temp_stock = Stock(name=stock_name,start_date=from_date,end_date=to_date)
-
+                #temp_stock = Stock(name=stock_name,start_date=from_date,end_date=to_date)
+                
 
                 #This was the first option
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
+                return render_template('/stocks/stock.html',my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,true_value=true_value)
+                #return render_template('/stocks/stock.html')
 
                 #return render_template('/stocks/stock.html',my_table=my_table)
             elif "d" in order:
                 
-                bytes_me = io.BytesIO()
+
+                true_value = plotting_diagram(stock_name,from_date,to_date,period,order)
                 #Get the data from api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='d')
                 with open("sample.json","w") as outfile:
@@ -413,9 +538,8 @@ def stock():
                 plt.title("Stock")
                 plt.xlabel("Time")
                 plt.ylabel("Price")
-                plt.savefig(bytes_me,format="png")
-                bytes_me.seek(0)
-                my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+                save_results_to = '/Users/jesus/OneDrive/Desktop/NN_Stock_proj/templates/stocks/'
+                plt.savefig(save_results_to + "sample.png",dpi=300)
                 plt.close()
 
                 
@@ -425,19 +549,19 @@ def stock():
                 #df.to_csv("stock.csv",sep="\t")
 
                 #Unnecessary table for printing it out from CRUD
-                my_table = df.to_html(classes=['date','close'])
+                #my_table = df.to_html(classes=['date','close'])
                 #df = pd.read_csv('stock.csv')
                 
                 #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                 #result = windowed_df.to_html()
                 #print(windowed_df)
                 #
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
+                return render_template('/stocks/stock.html',true_value=true_value,stock_name=stock_name)
         elif 'w' in period:
                 if "a" in order:
                     #Get img
-                    bytes_me = io.BytesIO()
-
+                    
+                    true_value = plotting_diagram(stock_name,from_date,to_date,period,order)
                     #Get data from api
                     resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='w',from_date=from_date,to_date=to_date,order='a')
                     with open("sample.json","w") as outfile:
@@ -463,9 +587,9 @@ def stock():
                     plt.title("Stock")
                     plt.xlabel("Time")
                     plt.ylabel("Price")
-                    plt.savefig(bytes_me,format="png")
-                    bytes_me.seek(0)
-                    my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+                    save_results_to = '/Users/jesus/OneDrive/Desktop/NN_Stock_proj/templates/stocks/'
+                    plt.savefig(save_results_to + "sample.png",dpi=300)
+                    
                     plt.close()
                     
 
@@ -484,14 +608,15 @@ def stock():
                     #result = windowed_df.to_html()
                     #print(windowed_df)
                     #print(result)   
-                    return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
+                    return render_template('/stocks/stock.html',true_value=true_value,stock_name=stock_name)
                     #return render_template('/stocks/stock.html',my_table=my_table)
                 elif "d" in order:
 
                     #Get img
                     #img = BytesIO()
-                    bytes_me = io.BytesIO()
+                    
                     #Get data from api
+                    true_value = plotting_diagram(stock_name,from_date,to_date,period,order)
                     resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='w',from_date=from_date,to_date=to_date,order='d')
                     with open("sample.json","w") as outfile:
                         json.dump(resp,outfile)
@@ -516,9 +641,9 @@ def stock():
                     plt.title("Stock")
                     plt.xlabel("Time")
                     plt.ylabel("Price")
-                    plt.savefig(bytes_me,format="png")
-                    bytes_me.seek(0)
-                    my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+                    save_results_to = '/Users/jesus/OneDrive/Desktop/NN_Stock_proj/templates/stocks/'
+                    plt.savefig(save_results_to + "sample.png",dpi=300)
+                    
                     plt.close()
                     
                     #Plot save the figure in the png format
@@ -537,13 +662,13 @@ def stock():
                     #windowed_df = df_to_windowed_df(df,from_date, to_date, n=3)
                     #result = windowed_df.to_html()
                     #print(windowed_df)
-                    return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
+                    return render_template('/stocks/stock.html',true_value=true_value,stock_name=stock_name)
 
         elif "m" in period:
             if "a" in order:
 
                 #image 
-                bytes_me = io.BytesIO()
+                true_value = plotting_diagram(stock_name,from_date,to_date,period,order)
 
                 #Get data from api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date,order='a')
@@ -570,9 +695,8 @@ def stock():
                 plt.title("Stock")
                 plt.xlabel("Time")
                 plt.ylabel("Price")
-                plt.savefig(bytes_me,format="png")
-                bytes_me.seek(0)
-                my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+                save_results_to = '/Users/jesus/OneDrive/Desktop/NN_Stock_proj/templates/stocks/'
+                plt.savefig(save_results_to + "sample.png",dpi=300)
                 plt.close()
 
                 #Save the plotting image
@@ -591,12 +715,12 @@ def stock():
                 
                 #print(result)
                 
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
+                return render_template('/stocks/stock.html',true_value=true_value,stock_name=stock_name)
 
                 #return render_template('/stocks/stock.html', my_table=my_table)
             elif "d" in order:
-                bytes_me = io.BytesIO()
-
+                
+                true_value = plotting_diagram(stock_name,from_date,to_date,period,order)
                 #Get the data from api
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date,order='d')
                 with open("sample.json","w") as outfile:
@@ -604,7 +728,7 @@ def stock():
                 f = open('sample.json',"r")
                 data = json.load(f)
 
-                print(data)
+                
                 #Put that data to a dictionary
                 df = pd.DataFrame(data)
 
@@ -617,16 +741,15 @@ def stock():
                 plt.plot(df.index, df['close'])
                 #from_date = '2021-03-25'
                 #to_date = '2022-03-23'
-                windowed_df = df_to_windowed_df(df,from_date,to_date,n=3)
-                print(windowed_df)
+                
                 #Plot
                 
                 plt.title("Stock")
                 plt.xlabel("Time")
                 plt.ylabel("Price")
-                plt.savefig(bytes_me,format="png")
-                bytes_me.seek(0)
-                my_base64_pngData = base64.b64encode(bytes_me.read()).decode()
+                save_results_to = '/Users/jesus/OneDrive/Desktop/NN_Stock_proj/templates/stocks/'
+                plt.savefig(save_results_to + "sample.png",dpi=300)
+                
 
                 plt.close()
 
@@ -651,7 +774,7 @@ def stock():
                 #result = windowed_df.to_html()
                 #print(windowed_df)
                 
-                return render_template('/stocks/stock.html',my_base64_pngData=my_base64_pngData,stock_name=stock_name)
+                return render_template('/stocks/stock.html',true_value=true_value,stock_name=stock_name)
 
             
     else:
@@ -663,6 +786,18 @@ def stock():
         new_user = Person.query.filter_by(username=username).first()
         return render_template('/stocks/stock.html',current_user=new_user)
     return render_template('/stocks/stock.html')
+def windowed_df_to_date_X_y(windowed_dataframe):
+  df_as_np = windowed_dataframe.to_numpy()
+
+  dates = df_as_np[:, 0]
+
+  middle_matrix = df_as_np[:, 1:-1]
+  X = middle_matrix.reshape((len(dates), middle_matrix.shape[1], 1))
+
+  Y = df_as_np[:, -1]
+
+  return dates, X.astype(np.float32), Y.astype(np.float32)
+
 
 @app.route('/info', methods=['POST','GET'])
 def index():

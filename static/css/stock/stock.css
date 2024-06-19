@@ -220,3 +220,11 @@ form.example::after {
     width: 500px;
     height: 500px;
 }
+.img2{
+    display: relative;
+    position: absolute;
+    top: 450px;
+    left: 950px;
+    width: 500px;
+    height: 500px;
+}
