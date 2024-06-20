@@ -342,8 +342,10 @@ def plotting_diagram(stock_name, from_date, to_date,period, order):
     
     df['Date'] = df['Date'].apply(str_to_datetime)
     df.index = df.pop('Date')
+    #plt.subplot(1,2,1);
+    plt.clf()
     plt.plot(df.index,df['Close'])
-    plt.show()
+   
     windowed_df = df_to_windowed_df(df, 
                     from_date, 
                     to_date, 
@@ -433,6 +435,9 @@ def plotting_diagram(stock_name, from_date, to_date,period, order):
     plt.plot(dates_test, test_predictions)
     plt.plot(dates_test, y_test)
     plt.plot(recursive_dates, recursive_predictions)
+    plt.title("LTSM Stock Prediction")
+    plt.xlabel("Time")
+    plt.ylabel("Stock Price")
     plt.legend(['Training Predictions', 
                 'Training Observations',
                 'Validation Predictions', 
@@ -440,11 +445,9 @@ def plotting_diagram(stock_name, from_date, to_date,period, order):
                 'Testing Predictions', 
                 'Testing Observations',
                 'Recursive Predictions'])
-    plt.savefig(fname="final.png")
     plt.savefig(bytes_me,format="png")
     bytes_me.seek(0)
     final_img = base64.b64encode(bytes_me.read()).decode()
-    
     
     return (np.array([last_window_new]),final_img)
 @app.route('/stocks', methods=['POST', 'GET'])
@@ -461,7 +464,7 @@ def stock():
                 
                 bytes_me = io.BytesIO()
                 true_value, final_img= plotting_diagram(stock_name,from_date,to_date,period,order)
-                
+                plt.clf()
                 ## Get the data from stock api
                 
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date,order='a')
@@ -482,6 +485,7 @@ def stock():
                 df = df[['date','close']]
                 df['date'] = df['date'].apply(str_to_datetime)
                 df.index = df.pop('date')
+                #plt.subplot(1,2,2)
                 plt.plot(df.index, df['close'])       
                 #Plot 
                 #Save the plotting image
@@ -492,7 +496,9 @@ def stock():
                 plt.savefig(bytes_me,format="png")
                 bytes_me.seek(0)
                 my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
-                plt.close()
+                
+                
+                
                 
                 
                 #Same as here
@@ -506,6 +512,7 @@ def stock():
 
                 #This was the first option
                 return render_template('/stocks/stock.html',my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,true_value=true_value)
+                #return render_template('/stocks/stock.html',my_base_64_pngData=my_base_64_pngData,stock_name=stock_name)
                 #return render_template('/stocks/stock.html')
 
                 #return render_template('/stocks/stock.html',my_table=my_table)
