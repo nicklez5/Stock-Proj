@@ -216,7 +216,7 @@ form.example::after {
     display: relative;
     position: absolute;
     top: 450px;
-    left: 350px;
+    left: 250px;
     width: 500px;
     height: 500px;
 }
@@ -227,4 +227,41 @@ form.example::after {
     left: 950px;
     width: 500px;
     height: 500px;
+}
+.stocks_buy{
+    display: flex;
+}
+#buy_option{
+    position: absolute;
+    bottom: -80px;
+    border: 1px solid green;
+    height: 100px;
+    width: 175px;
+}
+form.buy label{
+    color: green;
+    font-family:Verdana, Geneva, Tahoma, sans-serif;
+    position: relative;
+    font-size: 15px;
+    
+}
+form.buy input{
+    width: 75px;
+    margin-left: 25px;
+    background-color: green;
+    padding: 2.5px;
+}
+#currency{
+    display: inline-block;
+    margin-left: 55px;
+    border-radius: 30px;
+    padding: 2.5px;
+    background-color: green;
+}
+form.buy button{
+    color: white;
+    margin-left:50px;
+    margin-top: 20px;
+    background-color: green;
+    border-radius: 10px;
 }

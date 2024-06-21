@@ -27,43 +27,46 @@
     <h1 id="header_stock">Stocks</h1>  
     
     <div>
-            <form class="example" action="/stocks" method="post" style="margin:auto;max-width:550px" >
+            <form class="example" action="/stocks" method="POST" style="margin:auto;max-width:550px" >
                 <h1>Name</h1>
                 <input type="text" placeholder="Search name of company" name="keyword2" >
                 <h2>Start</h2>
-                <input type="date" id="stock-time" name="from_date" value="2021-03-25" min="1986-03-11" max=str(date)>
+                <input type="date" id="stock-time" name="from_date" min="1986-03-11" max={{ current_date }}>
                 <h3>End</h3>
-                <input type="date" id="stock-time" name="to_date" value="2022-03-23" min="1993-06-12" max=str(date)>
+                <input type="date" id="stock-time" name="to_date" min="1993-06-12" max={{ current_date }}>
                 <input type="checkbox" id="checkbox_day_label" name="period" value="d">
                 <label for="utc_day" id="day_label">Day</label><br>
                 <input type="checkbox" id="checkbox_week_label" name="period" value="w">
                 <label for="utc_month" id="week_label">Week</label>
                 <input type="checkbox" id="checkbox_month_label" name="period" value="m">
                 <label for="utc_year" id="month_label">Month</label>
-                <label for="ascending" id="ascending_label">Ascending Dates</label>
-                <br>
-                <input type="checkbox" id="checkbox_asc_label" name="order" value="a">
-                <label for="descending" id="descending_label">Descending Dates</label>
                 
-                <input type="checkbox" id="checkbox_desc_label" name="order" value="d">
 
                 <button type="submit" class="fa fa-search" style="background-color: green"></button>
-
-
-
             </form>
         
-            <p style="color:green; position: absolute; left: 175px; bottom: 30px;">Stock Name: {{stock_name}}</p>
+            <p style="color:green; position: absolute; left: 10px; bottom: 30px;">Stock Name: {{stock_name}}</p>
              
-            <p style="color:green; position: absolute; left: 175px; bottom: 10px;">Predictions:</p>
+            <p style="color:green; position: absolute; left: 10px; bottom: 10px;">Predictions:</p>
             <br/>
             
             <img src="data:image/png;base64, {{ my_base_64_pngData}}" class="img1"/>
             <img src="data:image/png;base64, {{ final_img}}" class="img2"/> 
     
-            <p style="color:green; position: absolute; left: 60px; bottom: -10px;">{{true_value}}</p>
-        </div>
-    
+            <p style="color:green; position: absolute; left: 95px; bottom: 10px;">{{true_value}}</p>
+    </div>
+    <form class="buy" action="/buy" method="POST" id="buy_option" >
+        <label >Buy in </label>
+        <select id="currency" name="currency">
+            <option value="BTC">BTC</option>
+            <option value="ETH">ETH</option>
+            <option value="XMR">XMR</option>
+        </select>
+        <br/>
+        <label>Amount</label>
+        <input type="number" name="stock_amt" value=0 step=".01"/>
+        <button type="submit">Submit</button>
+    </form>
     <!--<div id="table_form">
         {{ my_table | safe}}
     </div> -->
