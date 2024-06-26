@@ -5,14 +5,10 @@ from flask_login import LoginManager, login_required, login_user, logout_user, c
 import flask_login
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail,Message
-import tensorflow as tf
-import keras
-from keras import layers
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import layers
-from copy import deepcopy
 
 
+
+import yfinance as yf
 from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
@@ -23,9 +19,17 @@ import base64
 import pickle
 import pandas as pd
 import requests
-import os
-import csv,re
 from dotenv import load_dotenv
+import os
+load_dotenv()
+import tensorflow as tf
+import keras
+from keras import layers
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import layers
+from copy import deepcopy
+import csv,re
+
 from newsdataapi import NewsDataApiClient
 from newsapi import NewsApiClient
 
@@ -44,9 +48,12 @@ from templates.auth.reset_password_email_content import (reset_password_email_ht
 from sqlalchemy import URL
 load_dotenv()
 
-
+lstm_image = ""
+regular_image = ""
+preferred_stock_predictions = []
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
+
 app.secret_key = os.getenv('SECRET_KEY_FLASK')
 newsapi = NewsApiClient(os.getenv('news_api'))
 api = APIClient(os.getenv("api_client"))
@@ -76,6 +83,7 @@ person_stocks = db.Table(
     db.Column("stock_id", db.Integer, db.ForeignKey("stock.id")),
 )
 preferred_stock_name = ""
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Person,user_id)
@@ -111,6 +119,7 @@ class Person(db.Model, UserMixin):
     def is_anonymous(self):
         return False
     
+
     def get_id(self):
         return self.id
     
@@ -120,6 +129,8 @@ class Person(db.Model, UserMixin):
     def set_password(self, password2):
         self._password = password2
 
+    def set_money(self, money2):
+        self.money = money2
     def toJSON(self):
         return json.dumps(
             self,
@@ -152,11 +163,9 @@ class Person(db.Model, UserMixin):
 class Stock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100),nullable=False)
-
-    start_date = db.Column(db.DateTime,default='2023-01-01')
-    end_date = db.Column(db.DateTime,default=datetime.datetime.now())
-
-
+    amount = db.Column(db.Float,nullable=False)
+    price = db.Column(db.Float,nullable=False)
+    date_purchased = db.Column(db.DateTime,default=datetime.datetime.now())
 
     def __repr__(self):
         return f'<Stock "{self.name}">'
@@ -364,9 +373,9 @@ def home():
     if total_results > 100:
         total_results = 100
     all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
-    username = session['username']
-    new_user = Person.query.filter_by(username=username).first()
-    return render_template("/home/home.html", all_headlines=all_headlines,current_user = new_user)
+    #username = session['username']
+    new_user = current_user
+    return render_template("/home/home.html", all_headlines=all_headlines,current_user=new_user)
 
 def str_to_datetime(s):
     split = s.split('-')
@@ -452,20 +461,24 @@ def plotting_diagram(stock_name, from_date, to_date):
                 'Testing Observations'])
     plt.savefig(fname="all.png")
     recursive_predictions = []
-    recursive_dates = np.concatenate([dates_val, dates_test])
-    last_window_new =  deepcopy(X_train[-1])
-
+    recursive_dates=np.concatenate([dates_val, dates_test])
+    last_window = deepcopy(X_train[-1])
     for target_date in recursive_dates:
-        next_prediction = model.predict(np.array([last_window_new])).flatten()
+        next_prediction=model.predict(np.array([last_window[-3:]])).flatten()
         recursive_predictions.append(next_prediction)
-        last_window_new[0] = last_window_new[1]
-        last_window_new[1] = last_window_new[2]
-        last_window_new[-1] = next_prediction
+        last_window=np.concatenate((last_window,[next_prediction]))
+        #print(last_window)
+
+
+
+    
 
     print("Prediction for this stock: ")
-    arr = np.array([last_window_new])
-    arr = list(arr)
-    print(arr[0][0])
+    #arr = np.array([last_window])
+    arr = list(recursive_predictions)
+    print(arr[len(arr)-1])
+    global preferred_stock_predictions
+    preferred_stock_predictions = arr[0][0]
     plt.plot(dates_train, train_predictions)
     plt.plot(dates_train, y_train)
     plt.plot(dates_val, val_predictions)
@@ -485,9 +498,10 @@ def plotting_diagram(stock_name, from_date, to_date):
                 'Recursive Predictions'])
     plt.savefig(bytes_me,format="png")
     bytes_me.seek(0)
+    global lstm_image
     final_img = base64.b64encode(bytes_me.read()).decode()
-    
-    return (arr[0][0],final_img)
+    lstm_image = final_img
+    return (arr[len(arr)-1][0],final_img)
 @app.route('/buy', methods=['POST'])
 def buy_me():
     if request.method == 'POST':
@@ -496,11 +510,35 @@ def buy_me():
         stock_name = preferred_stock_name
         print("Stock Name:" + stock_name)
         print(selected)
+        bitcoin_value = currency("USD")
+        max_amount_btc = current_user.money / bitcoin_value
+        ticker_yahoo = yf.Ticker(preferred_stock_name)
+        data = ticker_yahoo.history()
+        last_quote = data['Close'].iloc[-1]
         if selected == "BTC":
-            bitcoin_value = currency("USD")
-            print(bitcoin_value)
-            max_amount_btc = current_user.money / bitcoin_value
             
+            print(bitcoin_value)
+            the_amount_wanted = int(float(stock_amount)) * bitcoin_value
+            print(type(max_amount_btc))
+            print(type(the_amount_wanted))
+            if(the_amount_wanted > max_amount_btc):
+                error2 = "Unable to get that amount, lack of money"
+                return render_template("/stocks/stock.html",lstm_image=lstm_image,regular_image=regular_image,error=error2,preferred_stock_name=preferred_stock_name,preferred_stock_predictions=preferred_stock_predictions,last_quote=last_quote)
+            else:
+                stock_to_btc = float(last_quote / bitcoin_value)
+                max_amount_btc = max_amount_btc - stock_to_btc
+                current_user.money = max_amount_btc * bitcoin_value
+                new_stock = Stock(name=preferred_stock_name,amount=stock_amount, price=last_quote)
+                current_user.stockz.append(new_stock)
+                db.session.commit()
+                error2 = f'You have successfully purchased {stock_amount} of {preferred_stock_name} with {stock_to_btc} BTC'
+                return error2
+               
+                # find the stock name price
+                # get the stock name price * amount
+                # turn that into bitcoin
+                # used ur max_amount_Btc to buy it
+                # add it to your person object stocks.
             print("Max amount able to buy of stock with bitcoin: " + str(max_amount_btc));
     return "Hello world"
 @app.route('/stocks', methods=['POST', 'GET'])
@@ -515,10 +553,18 @@ def stock():
         period = request.form.getlist('period')
         global preferred_stock_name
         preferred_stock_name = stock_name;
+        ticker_yahoo = yf.Ticker(preferred_stock_name)
+        data = ticker_yahoo.history()
+        stock_price = data['Close'].iloc[-1]
+        stock_price = round(stock_price,2)
+        usr_wallet_amount = current_user.money
+        usr_wallet_amount = round(usr_wallet_amount,2)
         if "d" in period:
-            """
+            
             bytes_me = io.BytesIO()
+            
             true_value, final_img= plotting_diagram(stock_name,from_date,to_date)
+            true_value = round(true_value,2)
             plt.clf()
 
             ## Get the data from stock api
@@ -547,20 +593,25 @@ def stock():
             
             plt.savefig(bytes_me,format="png")
             bytes_me.seek(0)
-            my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
             
-        
+            my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
+            global regular_image
+            regular_image = my_base_64_pngData
+
+            
             
 
             #This was the first option
-            return render_template('/stocks/stock.html',my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value)
-            """
+            return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)
+            
         elif 'w' in period:
-                """
+                
             
                 #Get img
                 bytes_me = io.BytesIO()
+                
                 true_value,final_img = plotting_diagram(stock_name,from_date,to_date)
+                true_value = round(true_value,2)
                 #Get data from api
                 plt.clf()
                 resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='w',from_date=from_date,to_date=to_date)
@@ -590,18 +641,21 @@ def stock():
                 plt.ylabel("Price")
                 plt.savefig(bytes_me,format="png")
                 bytes_me.seek(0)
-                my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
                 
+                my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
+                regular_image = my_base_64_pngData
 
             
-                return render_template('/stocks/stock.html',my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value)                    
-                """
+                return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)                    
+                
             
         elif "m" in period:
-            """
+            
             bytes_me = io.BytesIO()
             #image
+            
             true_value,final_img = plotting_diagram(stock_name,from_date,to_date)
+            true_value = round(true_value,2)
             plt.clf()
             #Get data from api
             resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date)
@@ -630,12 +684,13 @@ def stock():
             plt.ylabel("Price")
             plt.savefig(bytes_me,format="png")
             bytes_me.seek(0)
+            
             my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
-
+            regular_image = my_base_64_pngData
             
             
-            return render_template('/stocks/stock.html',my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value)
-            """
+            return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)
+            
 
             
     else:

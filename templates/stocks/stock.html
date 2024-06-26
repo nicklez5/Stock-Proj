@@ -44,17 +44,36 @@
 
                 <button type="submit" class="fa fa-search" style="background-color: green"></button>
             </form>
-        
-            <p style="color:green; position: absolute; left: 10px; bottom: 30px;">Stock Name: {{stock_name}}</p>
-             
-            <p style="color:green; position: absolute; left: 10px; bottom: 10px;">Predictions:</p>
+            <p style="color:green; position:relative;bottom:50px;">Stock Price: {{ stock_price }}</p>
+            {% if last_quote %}
+            <p style="color:green; position:relative;bottom:50px;">Stock Price: {{ last_quote }}</p>
+            {% endif %}
+            <p style="color:green; position: relative; bottom: 45px;">Stock Name: {{stock_name}}</p>
+            {% if preferred_stock_name %}
+            <p style="color:green; position: relative; bottom: 45px;">Stock Name: {{preferred_stock_name}}</p>
+            {% endif %}
+            <p style="color:green; position: relative; bottom: 40px;">Predictions:</p>
             <br/>
             
+            
             <img src="data:image/png;base64, {{ my_base_64_pngData}}" class="img1"/>
+            
+
+            {% if regular_image %}
+            <img src="data:image/png;base64, {{ regular_image }}" class="img1"/>
+            {% endif %}
+
+            {% if lstm_image %}
+            <img src="data:image/png;base64, {{ lstm_image }}" class="img2"/>
+            {% endif %}
+
+            
             <img src="data:image/png;base64, {{ final_img}}" class="img2"/> 
-    
-            <p style="color:green; position: absolute; left: 95px; bottom: 10px;">{{true_value}}</p>
-    </div>
+            
+            <p style="color:green; position: absolute; left:100px; bottom: 385px;">{{true_value}}</p>
+            <p style="color:green; position: absolute; left:100px; bottom: 385px;">{{preferred_stock_predictions}}</p>
+
+        </div>
     <form class="buy" action="/buy" method="POST" id="buy_option" >
         <label >Buy in </label>
         <select id="currency" name="currency">
@@ -63,10 +82,16 @@
             <option value="XMR">XMR</option>
         </select>
         <br/>
+        <p>Wallet Amount: <strong style="margin-left: 20px;">${{ usr_wallet_amount }}</strong></p>
         <label>Amount</label>
         <input type="number" name="stock_amt" value=0 step=".01"/>
+        
         <button type="submit">Submit</button>
     </form>
+    {% if error %}
+    <p class="error2">{{error}}</p>
+    {% endif %}
+    
     <!--<div id="table_form">
         {{ my_table | safe}}
     </div> -->

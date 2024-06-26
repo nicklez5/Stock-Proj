@@ -232,11 +232,11 @@ form.example::after {
     display: flex;
 }
 #buy_option{
-    position: absolute;
-    bottom: -80px;
+    position: relative;
+    padding: 10px;
     border: 1px solid green;
-    height: 100px;
-    width: 175px;
+    height: 200px;
+    width: 225px;
 }
 form.buy label{
     color: green;
@@ -247,13 +247,18 @@ form.buy label{
 }
 form.buy input{
     width: 75px;
-    margin-left: 25px;
+    margin-left: 65px;
     background-color: green;
     padding: 2.5px;
 }
+form.buy p{
+    color: green;
+    position: relative;
+    font-size: 15px;
+}
 #currency{
     display: inline-block;
-    margin-left: 55px;
+    margin-left: 97.5px;
     border-radius: 30px;
     padding: 2.5px;
     background-color: green;
@@ -264,4 +269,10 @@ form.buy button{
     margin-top: 20px;
     background-color: green;
     border-radius: 10px;
+}
+.error2{
+    color: green;
+    position: absolute;
+    left: 10px;
+    top: 900px;
 }
