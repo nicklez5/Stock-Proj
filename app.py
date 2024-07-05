@@ -6,9 +6,6 @@ import flask_login
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail,Message
 
-
-
-import yfinance as yf
 from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
@@ -16,42 +13,53 @@ from itsdangerous import URLSafeTimedSerializer
 from IPython.display import display
 from io import BytesIO 
 import base64
+
 import pickle
-import pandas as pd
+import pytz as pytz
+#Machine learning imports 
+
+import numpy as np
 import requests
 from dotenv import load_dotenv
 import os
-load_dotenv()
-import tensorflow as tf
-import keras
-from keras import layers
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import layers
-from copy import deepcopy
-import csv,re
-
-from newsdataapi import NewsDataApiClient
-from newsapi import NewsApiClient
-
-import datetime
 import numpy as np
+import pandas as pd
+import yfinance as yf
+import pandas_ta as ta
 
-import matplotlib
-matplotlib.use('Agg')
+load_dotenv()
+
 import matplotlib.pyplot as plt
 
+import tensorflow as tf
+import keras
+from keras import layers,optimizers
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.callbacks import History
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import layers
+from tensorflow.keras.layers import LSTM, Dropout, Dense, TimeDistributed, Input, Activation, concatenate
+from sklearn.preprocessing import MinMaxScaler
+#Machine learning devices
+from copy import deepcopy
+import csv,re
+from newsdataapi import NewsDataApiClient
+from newsapi import NewsApiClient
+import datetime
 from bitcoin_value import currency
-
-
 import json
 from templates.auth.reset_password_email_content import (reset_password_email_html_content)
 from sqlalchemy import URL
+
+
+
 load_dotenv()
 
 lstm_image = ""
 regular_image = ""
 preferred_stock_predictions = []
 app = Flask(__name__)
+
 bcrypt = Bcrypt(app)
 
 app.secret_key = os.getenv('SECRET_KEY_FLASK')
@@ -83,7 +91,6 @@ person_stocks = db.Table(
     db.Column("stock_id", db.Integer, db.ForeignKey("stock.id")),
 )
 preferred_stock_name = ""
-
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Person,user_id)
@@ -169,78 +176,16 @@ class Stock(db.Model):
 
     def __repr__(self):
         return f'<Stock "{self.name}">'
+def process_inputs(perf_series: pd.Series, window_length: int) -> pd.DataFrame:
+    dataframes = []
+    for i in range(window_length):
+        dataframes.append(perf_series.shift(i).to_frame(f"T- {i}"))
+    return pd.concat(reversed(dataframes), axis=1).dropna()
 
-def send_reset_password_email(user):
-    reset_password_url = url_for(
-        "reset_password",
-        token=user.generate_reset_password_token(),
-        user_id=user.id,
-        _external = True,
-    )
-    email_body = render_template_string(
-        reset_password_email_html_content,reset_password_url=reset_password_url
-    )
-    with mail.connect() as conn:
-        message = Message(
-        subject="Reset your password",
-        html=email_body,
-        recipients=[user.email],
-        sender=os.getenv("MAIL_USERNAME"))
+def process_targets(perf_series: pd.Series):
+    return perf_series.shift(-2).dropna()
 
-        conn.send(message)
-    
-    
-
-@app.route("/reset_password/<token>/<int:user_id>", methods=["GET","POST"])
-def reset_password(token,user_id):
-    error = None
-    if current_user.is_authenticated:
-        return redirect("/news")
-    user = Person.validate_reset_password_token(token,user_id)
-    if not user:
-        error = "User does not exists"
-        return render_template("auth/reset_password_error.html",title="Reset Password error",error=error)
-    if request.method == "POST":
-        password1 = request.form.get("password")
-        password2 = request.form.get("password2")
-        if password1 == password2:
-            
-            try:
-                with app.app_context():
-                    email = user.email;
-                    user2 = Person.query.filter_by(email=email).first()
-                    user2.set_password(password2)
-                    
-                    db.session.commit()
-                    return render_template(
-                        "/auth/reset_password_success.html",title="Reset Password Success", current_user=user2
-                    )
-            except Exception as err: 
-                print(f"Unexpected {err=}, {type(err)=}")
-                raise
-                
-            
-        else:
-            error = "None matching passwords"
-            return render_template(
-                "/auth/reset_password_error.html", error=error,title="Reset Password Failed"
-            )
-    return render_template("/auth/ResetPasswordFinal.html",error=error,user=user)
-@app.route("/reset_password", methods=["GET","POST"])
-def reset_password_request():
-    error = None
-    if request.method == "POST":
-        email = request.form.get("email")
-        user = Person.query.filter_by(email=email).first()
-        if user:
-            send_reset_password_email(user)
-            error="Instructors to reset your password were sent to your email address, if it exists in our system"
-        else:
-            error = "Email does not exists in database"
-        
-
-
-    return render_template("/auth/ResetPassword.html",error=error)
+   
 #Dataframe = dates and closes 
 def df_to_windowed_df(dataframe, first_date_str, last_date_str, n=3):
   
@@ -327,23 +272,6 @@ def df_to_windowed_df(dataframe, first_date_str, last_date_str, n=3):
 #     return db.session.get(Person,user_id)
 #     return Person.query.get(user_id)
 
-@app.route("/login", methods=['GET','POST'])
-def login():
-    error = None
-    if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        user = Person.query.filter_by(email=email).first()
-        if user:
-            if user.password == password:
-                login_user(user,remember=True)
-                user.is_authenticated();
-                return redirect('/')
-            else:
-                error = "Invalid Credentials. Please try again."
-        else:
-            return "Email does not exist."
-    return render_template("/auth/login.html",user=current_user,error=error)
 
 def get_sources_and_domains():
     all_sources = newsapi.get_sources()['sources']
@@ -381,7 +309,86 @@ def str_to_datetime(s):
     split = s.split('-')
     year, month,day = int(split[0]), int(split[1]), int(split[2])
     return datetime.datetime(year=year,month=month,day=day)
+def lstm(stock_name,from_date,to_date):
+    data = yf.download(tickers=stock_name,start=from_date,end=to_date)
+    print(data.head(10))
+    data['RSI'] = ta.rsi(data.Close, length=15)
+    data['EMAF'] = ta.ema(data.Close, length=20)
+    data['EMAM'] = ta.ema(data.Close,length=100)
+    data['EMAS'] = ta.ema(data.Close,length=150)
+    
+    data['Target'] = data['Adj Close']-data.Open
+    data['Target'] = data['Target'].shift(-1)
+    data['TargetClass'] = [1 if data.Target[i] > 0 else 0 for i in range(len(data))]
+    data['TargetNextClose'] = data['Adj Close'].shift(-1)
+    data.dropna(inplace=True)
+    data.reset_index(inplace=True)
+    data.drop(['Volume','Close','Date'],axis=1,inplace=True)
+    data_set = data.iloc[:, 0:11]
+    pd.set_option('display.max_columns',None)
+    data_set.head(20)
+    sc = MinMaxScaler(feature_range=(0,1))
+    data_set_scaled = sc.fit_transform(data_set)
+    X = []
+    backcandles = 30
+    print(data_set_scaled.shape[0])
+    for j in range(8):
+        X.append([])
+        for i in range(backcandles, data_set_scaled.shape[0]):
+            X[j].append(data_set_scaled[i-backcandles:i, j])
+    X = np.moveaxis(X, [0] , [2])
+    X,yi = np.array(X), np.array(data_set_scaled[backcandles:,-1])
+    y = np.reshape(yi,(len(yi),1))
+    splitlimit = int(len(X) * 0.8)
+    X_train, X_test = X[:splitlimit], X[splitlimit:]
+    y_train, y_test = y[:splitlimit], y[splitlimit:]
+    lstm_input = Input(shape=(backcandles,8) ,name='lstm_input')
+    inputs = LSTM(150, name='first_layer')(lstm_input)
+    inputs = Dense(1, name='dense_layer')(inputs)
+    output = Activation('linear',name='output')(inputs)
+    model = Model(inputs=lstm_input, outputs=output)
+    adam = optimizers.Adam()
+    model.compile(optimizer=adam, loss='mse')
+    model.fit(x=X_train,y=y_train, batch_size=15,epochs=30,shuffle=True,validation_split = 0.1)
+    y_pred = model.predict(X_test)
+    for i in range(10):
+        print(y_pred[i], y_test[i])
+    plt.figure(figsize=(16,8))
+    plt.plot(y_test, color = 'black', label = 'Test')
+    plt.plot(y_pred, color = 'green', label = 'pred')
+    plt.legend()
+    plt.savefig(fname="final.png")
+    """
+    url = f'https://eodhd.com/api/eod/{stock_name}.US?api_token={os.getenv("api_client")}&fmt=csv&from={from_date}&to={to_date}'
+    data = requests.get(url).content
+    data = data.decode("utf-8").splitlines()
+    filename = "output.csv"
+    with open(filename,"w") as csv_file:
+        writer = csv.writer(csv_file,delimiter="\n")
+        for line in data:
+            if not line.isspace():
+                writer.writerow(re.split('\s+',line))
+    df = pd.read_csv(filename)
+    df = df[['Date','Close']]
+    df['Date'] = df['Date'].apply(str_to_datetime)
+    df.index = df.pop('Date')
+    print(df)
+    pass
+    """
+def plotting_diagram2(stock_name,from_date,to_date):
+    return 1
+def plot_prediction(test,prediction):
+    print("Entered plotting")
+    plt.plot(test,color='red',label="Real IBM Stock Price")
+    plt.plot(prediction, color="blue",label="predicted IBM Stock price")
+    plt.title("IBM Stock Price Prediction")
+    plt.xlabel("Time")
+    plt.ylabel("IBM Stock Price")
+    plt.legend()
+    plt.savefig(fname="final.png")
 
+
+    #df["High"][:]
 def plotting_diagram(stock_name, from_date, to_date):
     bytes_me = io.BytesIO()
     
@@ -547,20 +554,27 @@ def stock():
     if request.method == 'POST':
         plt.clf()
         stock_name = request.form.get('keyword2')
-        
         from_date = request.form.get('from_date')
         to_date = request.form.get('to_date')
         period = request.form.getlist('period')
+
+        
         global preferred_stock_name
         preferred_stock_name = stock_name;
+
         ticker_yahoo = yf.Ticker(preferred_stock_name)
         data = ticker_yahoo.history()
+
+        #data = ticker_yahoo.history()
+
         stock_price = data['Close'].iloc[-1]
         stock_price = round(stock_price,2)
         usr_wallet_amount = current_user.money
         usr_wallet_amount = round(usr_wallet_amount,2)
+
         if "d" in period:
-            
+            lstm(stock_name,from_date,to_date)
+            """
             bytes_me = io.BytesIO()
             
             true_value, final_img= plotting_diagram(stock_name,from_date,to_date)
@@ -597,15 +611,15 @@ def stock():
             my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
             global regular_image
             regular_image = my_base_64_pngData
-
+            
             
             
 
             #This was the first option
             return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)
-            
+            """
         elif 'w' in period:
-                
+            """
             
                 #Get img
                 bytes_me = io.BytesIO()
@@ -648,9 +662,9 @@ def stock():
             
                 return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)                    
                 
-            
+            """
         elif "m" in period:
-            
+            """
             bytes_me = io.BytesIO()
             #image
             
@@ -690,7 +704,7 @@ def stock():
             
             
             return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)
-            
+            """
 
             
     else:
@@ -721,6 +735,7 @@ def windowed_df_to_date_X_y(windowed_dataframe):
   Y = df_as_np[:, -1]
 
   return dates, X.astype(np.float32), Y.astype(np.float32)
+
 
 
 @app.route('/info', methods=['POST','GET'])
@@ -765,7 +780,90 @@ def index():
         Person1 = request.cookies.get('Person1')
         return render_template('/auth/info.html',Person1=Person1)
     return render_template('/home/home.html')
+@app.route("/reset_password", methods=["GET","POST"])
+def reset_password_request():
+    error = None
+    if request.method == "POST":
+        email = request.form.get("email")
+        user = Person.query.filter_by(email=email).first()
+        if user:
+            send_reset_password_email(user)
+            error="Instructors to reset your password were sent to your email address, if it exists in our system"
+        else:
+            error = "Email does not exists in database"
+    return render_template("/auth/ResetPassword.html",error=error)
 
+@app.route("/reset_password/<token>/<int:user_id>", methods=["GET","POST"])
+def reset_password(token,user_id):
+    error = None
+    if current_user.is_authenticated:
+        return redirect("/news")
+    user = Person.validate_reset_password_token(token,user_id)
+    if not user:
+        error = "User does not exists"
+        return render_template("auth/reset_password_error.html",title="Reset Password error",error=error)
+    if request.method == "POST":
+        password1 = request.form.get("password")
+        password2 = request.form.get("password2")
+        if password1 == password2:
+            
+            try:
+                with app.app_context():
+                    email = user.email;
+                    user2 = Person.query.filter_by(email=email).first()
+                    user2.set_password(password2)
+                    
+                    db.session.commit()
+                    return render_template(
+                        "/auth/reset_password_success.html",title="Reset Password Success", current_user=user2
+                    )
+            except Exception as err: 
+                print(f"Unexpected {err=}, {type(err)=}")
+                raise
+                
+            
+        else:
+            error = "None matching passwords"
+            return render_template(
+                "/auth/reset_password_error.html", error=error,title="Reset Password Failed"
+            )
+    return render_template("/auth/ResetPasswordFinal.html",error=error,user=user)
+
+@app.route("/login", methods=['GET','POST'])
+def login():
+    error = None
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        user = Person.query.filter_by(email=email).first()
+        if user:
+            if user.password == password:
+                login_user(user,remember=True)
+                user.is_authenticated();
+                return redirect('/')
+            else:
+                error = "Invalid Credentials. Please try again."
+        else:
+            return "Email does not exist."
+    return render_template("/auth/login.html",user=current_user,error=error)
+def send_reset_password_email(user):
+    reset_password_url = url_for(
+        "reset_password",
+        token=user.generate_reset_password_token(),
+        user_id=user.id,
+        _external = True,
+    )
+    email_body = render_template_string(
+        reset_password_email_html_content,reset_password_url=reset_password_url
+    )
+    with mail.connect() as conn:
+        message = Message(
+        subject="Reset your password",
+        html=email_body,
+        recipients=[user.email],
+        sender=os.getenv("MAIL_USERNAME"))
+
+        conn.send(message)
 @app.route('/delete/<int:id>')
 def delete(id):
     person_to_delete = Person.query.get_or_404(id)
@@ -775,7 +873,7 @@ def delete(id):
         return redirect('/info')
     except: 
         return 'There was a problem deleting that task'
-    
+
 @app.route("/logout")
 @login_required
 def logout():
