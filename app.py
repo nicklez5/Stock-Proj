@@ -46,6 +46,7 @@ import csv,re
 from newsdataapi import NewsDataApiClient
 from newsapi import NewsApiClient
 import datetime
+import timedelta
 from bitcoin_value import currency
 import json
 from templates.auth.reset_password_email_content import (reset_password_email_html_content)
@@ -309,10 +310,33 @@ def str_to_datetime(s):
     split = s.split('-')
     year, month,day = int(split[0]), int(split[1]), int(split[2])
     return datetime.datetime(year=year,month=month,day=day)
+def check_if_under_year(from_date,to_date):
+    datetime1 = str_to_datetime(from_date)
+    datetime2 = str_to_datetime(to_date);
+    difference = datetime2 - datetime1;
+    x = difference.days
+    print(x)
+    
+    if x < 366:
+        return -1
+        print("Its under than one year")
+    elif x > 366:
+        return 0
+        print("Its over than one year")
+    else:
+        return 1
+        print("Its exactly one year")
+    
+    
+
 def lstm(stock_name,from_date,to_date):
     data = yf.download(tickers=stock_name,start=from_date,end=to_date)
     print(data.head(10))
+
+
     data['RSI'] = ta.rsi(data.Close, length=15)
+
+    #
     data['EMAF'] = ta.ema(data.Close, length=20)
     data['EMAM'] = ta.ema(data.Close,length=100)
     data['EMAS'] = ta.ema(data.Close,length=150)
@@ -321,27 +345,38 @@ def lstm(stock_name,from_date,to_date):
     data['Target'] = data['Target'].shift(-1)
     data['TargetClass'] = [1 if data.Target[i] > 0 else 0 for i in range(len(data))]
     data['TargetNextClose'] = data['Adj Close'].shift(-1)
+
     data.dropna(inplace=True)
     data.reset_index(inplace=True)
+
     data.drop(['Volume','Close','Date'],axis=1,inplace=True)
     data_set = data.iloc[:, 0:11]
+
     pd.set_option('display.max_columns',None)
     data_set.head(20)
+
     sc = MinMaxScaler(feature_range=(0,1))
     data_set_scaled = sc.fit_transform(data_set)
     X = []
-    backcandles = 30
+
+    #Number of days 
+    backcandles = 7
     print(data_set_scaled.shape[0])
     for j in range(8):
         X.append([])
         for i in range(backcandles, data_set_scaled.shape[0]):
             X[j].append(data_set_scaled[i-backcandles:i, j])
+
     X = np.moveaxis(X, [0] , [2])
     X,yi = np.array(X), np.array(data_set_scaled[backcandles:,-1])
     y = np.reshape(yi,(len(yi),1))
+
     splitlimit = int(len(X) * 0.8)
+
     X_train, X_test = X[:splitlimit], X[splitlimit:]
     y_train, y_test = y[:splitlimit], y[splitlimit:]
+
+
     lstm_input = Input(shape=(backcandles,8) ,name='lstm_input')
     inputs = LSTM(150, name='first_layer')(lstm_input)
     inputs = Dense(1, name='dense_layer')(inputs)
@@ -351,8 +386,12 @@ def lstm(stock_name,from_date,to_date):
     model.compile(optimizer=adam, loss='mse')
     model.fit(x=X_train,y=y_train, batch_size=15,epochs=30,shuffle=True,validation_split = 0.1)
     y_pred = model.predict(X_test)
+
+    x = len(y_pred) - 1
+    print(y_pred[x])
     for i in range(10):
         print(y_pred[i], y_test[i])
+
     plt.figure(figsize=(16,8))
     plt.plot(y_test, color = 'black', label = 'Test')
     plt.plot(y_pred, color = 'green', label = 'pred')
@@ -571,9 +610,10 @@ def stock():
         stock_price = round(stock_price,2)
         usr_wallet_amount = current_user.money
         usr_wallet_amount = round(usr_wallet_amount,2)
-
+        number_of_years = check_if_under_year(from_date,to_date);
         if "d" in period:
-            lstm(stock_name,from_date,to_date)
+            check_if_under_year(from_date,to_date);
+            #lstm(stock_name,from_date,to_date)
             """
             bytes_me = io.BytesIO()
             
