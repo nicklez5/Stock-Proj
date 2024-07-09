@@ -1,6 +1,4 @@
-import re
-import csv
-from keras import layers, optimizers
+
 from sqlalchemy import URL
 from templates.auth.reset_password_email_content import (
     reset_password_email_html_content)
@@ -9,13 +7,12 @@ from bitcoin_value import currency
 
 import datetime
 from datetime import date
-import timedelta
+
 from newsapi import NewsApiClient
-from newsdataapi import NewsDataApiClient
-from copy import deepcopy
+
 import matplotlib.pyplot as plt
 import io
-from urllib import response
+
 from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect, session
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user, UserMixin
 import flask_login
@@ -26,31 +23,27 @@ from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
 from itsdangerous import URLSafeTimedSerializer
-from IPython.display import display
+
 from io import BytesIO
 import base64
 
-import pickle
-import pytz as pytz
 # Machine learning imports
 
 import numpy as np
-import requests
+
 from dotenv import load_dotenv
 import os
 import tensorflow as tf
-import keras
 import math
 import pandas_datareader as web
 import numpy as np
 import pandas as pd
 import yfinance as yf
-import pandas_ta as ta
+
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras import layers
+
 from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
 load_dotenv()
 
 plt.style.use('fivethirtyeight')
