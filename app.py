@@ -9,7 +9,7 @@ import datetime
 from datetime import date
 
 from newsapi import NewsApiClient
-
+import git
 import matplotlib.pyplot as plt
 import io
 
@@ -211,7 +211,13 @@ def get_sources_and_domains():
     domains = ", ".join(domains)
     return sources, domains
 
-
+@app.route('/update_server',methods=['POST'])
+def webhook():
+    if request.method == 'POST':
+        repo = git.Repo('https://github.com/nicklez5/NN_Stock2')
+        origin = repo.remotes.origin
+    origin.pull()
+    return 'Updated python Anywhere successfully',200 else: return 'Wrong event type',400
 @app.route("/")
 def home_no_login():
     return render_template("/home/Login.html")
