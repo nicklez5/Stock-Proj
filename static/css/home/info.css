@@ -1,0 +1,55 @@
+
+#stock-box{
+    padding-top: 15px;
+    padding-bottom: 15px;
+    margin: auto;
+    text-align: center;
+    font-family:Verdana, sans-serif;
+    border-radius: 2px;
+    color: black;
+    display: inline;
+    position: relative;
+    left: 500px;
+    top: 50px;
+}
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #282727;
+}
+  
+li {
+    float: right;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    
+}
+
+li a:hover {
+    background-color: #111;
+}
+table{
+    background-color: black;
+    color: green;
+    position: absolute;
+    left: 425px;
+    border: 1px solid green;
+}
+p{
+    position: absolute;
+}
+#sell{
+    position: relative;
+    background-color: black;
+    color: green;
+    border-radius: 10px;
+    left: 7px;
+}

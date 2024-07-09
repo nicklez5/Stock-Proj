@@ -29,6 +29,9 @@ li a {
 li a:hover {
     background-color: #111;
 }
+#currency_amount{
+    font-size: 10px;
+}
 form.example input[type=date] {
     position: relative;
     margin-top: 15px;
@@ -235,7 +238,7 @@ form.example::after {
     position: relative;
     padding: 10px;
     border: 1px solid green;
-    height: 200px;
+    height: 175px;
     width: 225px;
 }
 form.buy label{
@@ -269,6 +272,9 @@ form.buy button{
     margin-top: 20px;
     background-color: green;
     border-radius: 10px;
+    position: absolute;
+    top: 95px;
+    left: 90px;
 }
 .error2{
     color: green;

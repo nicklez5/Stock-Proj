@@ -14,6 +14,7 @@
         {% if current_user %}
         <li><a href="/logout">Logout</a></li>
         <li><a href="/info">About</a></li>
+        <li><a href="/info2">Inventory</a></li>
         <li><a href="/stocks">Stock</a></li>
         <li><a href="/news">News</a></li>
         <li><a href="/">Welcome {{ current_user.username}}</a></li>
@@ -77,15 +78,12 @@
     <form class="buy" action="/buy" method="POST" id="buy_option" >
         <label >Buy in </label>
         <select id="currency" name="currency">
-            <option value="BTC">BTC</option>
-            <option value="ETH">ETH</option>
-            <option value="XMR">XMR</option>
+            <option value="USD">USD</option>
         </select>
         <br/>
-        <p>Wallet Amount: <strong style="margin-left: 20px;">${{ usr_wallet_amount }}</strong></p>
+        <p>Wallet Amount: <strong style="margin-left: 20px;">${{ round(usr_wallet_amount,2) }}</strong></p>
         <label>Amount</label>
         <input type="number" name="stock_amt" value=0 step=".01"/>
-        
         <button type="submit">Submit</button>
     </form>
     {% if error %}

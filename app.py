@@ -1,57 +1,62 @@
+import re
+import csv
+from keras import layers, optimizers
+from sqlalchemy import URL
+from templates.auth.reset_password_email_content import (
+    reset_password_email_html_content)
+import json
+from bitcoin_value import currency
+
+import datetime
+from datetime import date
+import timedelta
+from newsapi import NewsApiClient
+from newsdataapi import NewsDataApiClient
+from copy import deepcopy
+import matplotlib.pyplot as plt
 import io
 from urllib import response
-from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect,session
-from flask_login import LoginManager, login_required, login_user, logout_user, current_user,UserMixin
+from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect, session
+from flask_login import LoginManager, login_required, login_user, logout_user, current_user, UserMixin
 import flask_login
 from flask_sqlalchemy import SQLAlchemy
-from flask_mail import Mail,Message
+from flask_mail import Mail, Message
 
 from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
 from itsdangerous import URLSafeTimedSerializer
 from IPython.display import display
-from io import BytesIO 
+from io import BytesIO
 import base64
 
 import pickle
 import pytz as pytz
-#Machine learning imports 
+# Machine learning imports
 
 import numpy as np
 import requests
 from dotenv import load_dotenv
 import os
+import tensorflow as tf
+import keras
+import math
+import pandas_datareader as web
 import numpy as np
 import pandas as pd
 import yfinance as yf
 import pandas_ta as ta
-
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras import layers
+from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
 load_dotenv()
 
-import matplotlib.pyplot as plt
+plt.style.use('fivethirtyeight')
 
-import tensorflow as tf
-import keras
-from keras import layers,optimizers
-from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.callbacks import History
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import layers
-from tensorflow.keras.layers import LSTM, Dropout, Dense, TimeDistributed, Input, Activation, concatenate
-from sklearn.preprocessing import MinMaxScaler
-#Machine learning devices
-from copy import deepcopy
-import csv,re
-from newsdataapi import NewsDataApiClient
-from newsapi import NewsApiClient
-import datetime
-import timedelta
-from bitcoin_value import currency
-import json
-from templates.auth.reset_password_email_content import (reset_password_email_html_content)
-from sqlalchemy import URL
 
+# Machine learning devices
 
 
 load_dotenv()
@@ -79,8 +84,8 @@ app.config["RESET_PASS_TOKEN_MAX_AGE"] = 100000
 db = SQLAlchemy(app)
 
 with app.app_context():
-    db.create_all();
-    db.session.commit();
+    db.create_all()
+    db.session.commit()
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
@@ -88,57 +93,64 @@ login_manager.init_app(app)
 
 person_stocks = db.Table(
     "person_stocks",
-    db.Column("person_id",db.Integer, db.ForeignKey("person.id")),
+    db.Column("person_id", db.Integer, db.ForeignKey("person.id")),
     db.Column("stock_id", db.Integer, db.ForeignKey("stock.id")),
 )
 preferred_stock_name = ""
+
+
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Person,user_id)
+    return db.session.get(Person, user_id)
+
+
 class Person(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), nullable=False)
-    password = db.Column(db.String(100),nullable=False)
-    email = db.Column(db.String(100),nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
     date_created = db.Column(db.DateTime, default=datetime.datetime.now())
-    money = db.Column(db.Integer,default=4000)
-    stockz = db.relationship('Stock',lazy='subquery', secondary=person_stocks, backref='persons')
+    money = db.Column(db.Integer, default=4000)
+    stockz = db.relationship('Stock', lazy='subquery',
+                             secondary=person_stocks, backref='persons')
+
     def generate_reset_password_token(self):
         serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY_FLASK'))
-        
+
         return serializer.dumps(self.email)
+
     def __repr__(self):
         return '<Person %r>' % self.id
-    
+
     @classmethod
-    def is_user_name_taken(cls,username):
+    def is_user_name_taken(cls, username):
         return db.session.query(db.exists().where(Person.username == username)).scalar()
-    
+
     @classmethod
-    def is_email_taken(cls,email):
-        return db.session.query(db.exists().where(Person.email==email)).scalar()
+    def is_email_taken(cls, email):
+        return db.session.query(db.exists().where(Person.email == email)).scalar()
 
     def is_authenticated(self):
         return True
-    
+
     def is_active(self):
         return True
-    
+
     def is_anonymous(self):
         return False
-    
 
     def get_id(self):
         return self.id
-    
+
     def __repr__(self):
         return '<User %r>' % (self.username)
-    
+
     def set_password(self, password2):
         self._password = password2
 
     def set_money(self, money2):
         self.money = money2
+
     def toJSON(self):
         return json.dumps(
             self,
@@ -146,21 +158,22 @@ class Person(db.Model, UserMixin):
             sort_keys=True,
             indent=4
         )
+
     @staticmethod
     def validate_reset_password_token(token: str, user_id: int):
-        #user = db.session.get(Person,user_id)
+        # user = db.session.get(Person,user_id)
         user = Person.query.filter_by(id=user_id).first()
-        #print(user)
+        # print(user)
         if user is None:
             return None
-        
+
         serializer = URLSafeTimedSerializer(os.getenv("SECRET_KEY_FLASK"))
-        
+
         try:
             token_user_email = serializer.loads(
                 token
             )
-            
+
         except (BadSignature, SignatureExpired):
             print("Bad signature")
             return None
@@ -168,105 +181,18 @@ class Person(db.Model, UserMixin):
             print("Something happened here")
             return None
         return user
+
+
 class Stock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100),nullable=False)
-    amount = db.Column(db.Float,nullable=False)
-    price = db.Column(db.Float,nullable=False)
-    date_purchased = db.Column(db.DateTime,default=datetime.datetime.now())
+    name = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    date_purchased = db.Column(db.DateTime, default=datetime.datetime.now())
 
     def __repr__(self):
         return f'<Stock "{self.name}">'
-def process_inputs(perf_series: pd.Series, window_length: int) -> pd.DataFrame:
-    dataframes = []
-    for i in range(window_length):
-        dataframes.append(perf_series.shift(i).to_frame(f"T- {i}"))
-    return pd.concat(reversed(dataframes), axis=1).dropna()
 
-def process_targets(perf_series: pd.Series):
-    return perf_series.shift(-2).dropna()
-
-   
-#Dataframe = dates and closes 
-def df_to_windowed_df(dataframe, first_date_str, last_date_str, n=3):
-  
-  #turn the first/last dates to datetime 
-  first_date = str_to_datetime(first_date_str)
-  last_date  = str_to_datetime(last_date_str)
-
-  #target date
-  target_date = first_date
-  
-  dates = []
-  X, Y = [], []
-
-  last_time = False
-  while True:
-    #Dataframe = date | close
-    #dataframe subset = access a group of rows until beginning and extract 4 items
-    df_subset = dataframe.loc[:target_date].tail(n+1)
-   
-    if len(df_subset) != n+1:
-      print(f'Error: Window of size {n} is too large for date {target_date}')
-      return
-
-    #Dataframe close to numpy
-    values = df_subset['Close'].to_numpy()
-
-    #x get everything until last element, y = get the last element of sequence
-    x, y = values[:-1], values[-1]
-
-    #List of date append first starting date
-    dates.append(target_date)
-
-    #X big x that includes all the elements except last
-    X.append(x)
-    #Y big y that includes the last element
-    Y.append(y)
-
-    #Dataframe that gets everything from the starting date data till the next 7 days data
-    next_week = dataframe.loc[target_date:target_date+datetime.timedelta(days=7)]
-    
-    #get the next datetime str of the next week each of them. 
-    next_datetime_str = str(next_week.head(2).tail(1).index.values[0])
-    
-    next_date_str = next_datetime_str.split('T')[0]
-    year_month_day = next_date_str.split('-')
-    year, month, day = year_month_day
-    next_date = datetime.datetime(day=int(day), month=int(month), year=int(year))
-    
-    if last_time:
-      break
-    
-    target_date = next_date
-
-
-    #Finally last date
-    if target_date == last_date:
-      last_time = True
-
-  #Create a dataframe 
-  ret_df = pd.DataFrame({})
-  ret_df['Target Date'] = dates
-  
-
-  #Make large X as a numpy
-  X = np.array(X)
-
-  #For loop 
-  for i in range(0, n):
-    #X[:,i] = gets everything until the first/2nd/3rd
-    X[:, i]
-
-    #ret_df[Target-3] = X[:, 0] Gets all values from column 0 from all rows
-    #ret_df[Target-2] = X[:, 1] Gets all values from column 1 from all rows
-    #ret_df[Target-1] = X[:, 2] Gets all values from column 2 from all rows
-    ret_df[f'Target-{n-i}'] = X[:, i]
-  
-  #ret_df['Target'] = Gets the last value
-  ret_df['Target'] = Y
-
-  return ret_df
 
 # @login_manager.user_loader
 # def load_user(user_id):
@@ -282,7 +208,7 @@ def get_sources_and_domains():
         id = e['id']
         domain = e['url'].replace("http://", "")
         domain = domain.replace("https://", "")
-        domain = domain.replace("www.","")
+        domain = domain.replace("www.", "")
         slash = domain.find('/')
         if slash != -1:
             domain = domain[:slash]
@@ -292,301 +218,192 @@ def get_sources_and_domains():
     domains = ", ".join(domains)
     return sources, domains
 
+
 @app.route("/")
 def home_no_login():
     return render_template("/home/Login.html")
+
+
 @app.route("/news", methods=['GET'])
 def home():
-    top_headlines = newsapi.get_top_headlines(country="us",language="en")
+    top_headlines = newsapi.get_top_headlines(country="us", language="en")
     total_results = top_headlines['totalResults']
     if total_results > 100:
         total_results = 100
-    all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
-    #username = session['username']
+    all_headlines = newsapi.get_top_headlines(
+        country="us", language="en", page_size=total_results)['articles']
+    # username = session['username']
     new_user = current_user
-    return render_template("/home/home.html", all_headlines=all_headlines,current_user=new_user)
+    return render_template("/home/home.html", all_headlines=all_headlines, current_user=new_user)
+
 
 def str_to_datetime(s):
     split = s.split('-')
-    year, month,day = int(split[0]), int(split[1]), int(split[2])
-    return datetime.datetime(year=year,month=month,day=day)
-def check_if_under_year(from_date,to_date):
-    datetime1 = str_to_datetime(from_date)
-    datetime2 = str_to_datetime(to_date);
-    difference = datetime2 - datetime1;
-    x = difference.days
-    print(x)
-    
-    if x < 366:
-        return -1
-        print("Its under than one year")
-    elif x > 366:
-        return 0
-        print("Its over than one year")
-    else:
-        return 1
-        print("Its exactly one year")
-    
-    
-
-def lstm(stock_name,from_date,to_date):
-    data = yf.download(tickers=stock_name,start=from_date,end=to_date)
-    print(data.head(10))
+    year, month, day = int(split[0]), int(split[1]), int(split[2])
+    return datetime.datetime(year=year, month=month, day=day)
 
 
-    data['RSI'] = ta.rsi(data.Close, length=15)
+def lstm(stock_name, from_date, to_date):
 
-    #
-    data['EMAF'] = ta.ema(data.Close, length=20)
-    data['EMAM'] = ta.ema(data.Close,length=100)
-    data['EMAS'] = ta.ema(data.Close,length=150)
-    
-    data['Target'] = data['Adj Close']-data.Open
-    data['Target'] = data['Target'].shift(-1)
-    data['TargetClass'] = [1 if data.Target[i] > 0 else 0 for i in range(len(data))]
-    data['TargetNextClose'] = data['Adj Close'].shift(-1)
-
-    data.dropna(inplace=True)
-    data.reset_index(inplace=True)
-
-    data.drop(['Volume','Close','Date'],axis=1,inplace=True)
-    data_set = data.iloc[:, 0:11]
-
-    pd.set_option('display.max_columns',None)
-    data_set.head(20)
-
-    sc = MinMaxScaler(feature_range=(0,1))
-    data_set_scaled = sc.fit_transform(data_set)
-    X = []
-
-    #Number of days 
-    backcandles = 7
-    print(data_set_scaled.shape[0])
-    for j in range(8):
-        X.append([])
-        for i in range(backcandles, data_set_scaled.shape[0]):
-            X[j].append(data_set_scaled[i-backcandles:i, j])
-
-    X = np.moveaxis(X, [0] , [2])
-    X,yi = np.array(X), np.array(data_set_scaled[backcandles:,-1])
-    y = np.reshape(yi,(len(yi),1))
-
-    splitlimit = int(len(X) * 0.8)
-
-    X_train, X_test = X[:splitlimit], X[splitlimit:]
-    y_train, y_test = y[:splitlimit], y[splitlimit:]
-
-
-    lstm_input = Input(shape=(backcandles,8) ,name='lstm_input')
-    inputs = LSTM(150, name='first_layer')(lstm_input)
-    inputs = Dense(1, name='dense_layer')(inputs)
-    output = Activation('linear',name='output')(inputs)
-    model = Model(inputs=lstm_input, outputs=output)
-    adam = optimizers.Adam()
-    model.compile(optimizer=adam, loss='mse')
-    model.fit(x=X_train,y=y_train, batch_size=15,epochs=30,shuffle=True,validation_split = 0.1)
-    y_pred = model.predict(X_test)
-
-    x = len(y_pred) - 1
-    print(y_pred[x])
-    for i in range(10):
-        print(y_pred[i], y_test[i])
-
-    plt.figure(figsize=(16,8))
-    plt.plot(y_test, color = 'black', label = 'Test')
-    plt.plot(y_pred, color = 'green', label = 'pred')
-    plt.legend()
-    plt.savefig(fname="final.png")
-    """
-    url = f'https://eodhd.com/api/eod/{stock_name}.US?api_token={os.getenv("api_client")}&fmt=csv&from={from_date}&to={to_date}'
-    data = requests.get(url).content
-    data = data.decode("utf-8").splitlines()
-    filename = "output.csv"
-    with open(filename,"w") as csv_file:
-        writer = csv.writer(csv_file,delimiter="\n")
-        for line in data:
-            if not line.isspace():
-                writer.writerow(re.split('\s+',line))
-    df = pd.read_csv(filename)
-    df = df[['Date','Close']]
-    df['Date'] = df['Date'].apply(str_to_datetime)
-    df.index = df.pop('Date')
-    print(df)
-    pass
-    """
-def plotting_diagram2(stock_name,from_date,to_date):
-    return 1
-def plot_prediction(test,prediction):
-    print("Entered plotting")
-    plt.plot(test,color='red',label="Real IBM Stock Price")
-    plt.plot(prediction, color="blue",label="predicted IBM Stock price")
-    plt.title("IBM Stock Price Prediction")
-    plt.xlabel("Time")
-    plt.ylabel("IBM Stock Price")
-    plt.legend()
-    plt.savefig(fname="final.png")
-
-
-    #df["High"][:]
-def plotting_diagram(stock_name, from_date, to_date):
     bytes_me = io.BytesIO()
-    
-    url = f'https://eodhd.com/api/eod/{stock_name}.US?api_token={os.getenv("api_client")}&fmt=csv'
-    data = requests.get(url).content
-    data = data.decode("utf-8").splitlines()
-    filename = "output.csv"
-    with open(filename,"w") as csv_file:
-        writer = csv.writer(csv_file,delimiter="\n")
-        for line in data:
-            if not line.isspace():
-                writer.writerow(re.split('\s+',line))
-    df = pd.read_csv(filename)
-    df = df[['Date','Close']]
-    
-    df['Date'] = df['Date'].apply(str_to_datetime)
-    df.index = df.pop('Date')
+    df = yf.download(tickers=stock_name, start=from_date, end=to_date)
+    # print(df)
+    plt.figure(figsize=(16, 8))
+    plt.title('Close Price History')
+    plt.plot(df['Close'])
+    plt.xlabel('Date', fontsize=18)
+    plt.ylabel('Close Price USD($)', fontsize=18)
+    plt.savefig(fname="final.png")
 
+    # Create a new dataframe with only the Close column
+    data = df.filter(['Close'])
+    dataset = data.values
+    training_data_len = math.ceil(len(dataset) * .8)
 
-    plt.clf()
-    plt.plot(df.index,df['Close'])
-   
-   #Dataframe with dates , 3 targets and Target
-    windowed_df = df_to_windowed_df(df, 
-                    from_date, 
-                    to_date, 
-                    n=3)
-    
+    # Scale the data
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(dataset)
 
-    dates, X, y = windowed_df_to_date_X_y(windowed_df)
+    # Create the training data set
+    # Create the scaled training data set
+    train_data = scaled_data[0:training_data_len, :]
+    # Split the data into x_train and y_train data sets
+    x_train = []
+    y_train = []
+    for i in range(60, len(train_data)):
+        x_train.append(train_data[i-60:i, 0])
+        y_train.append(train_data[i, 0])
 
-    dates.shape, X.shape, y.shape
-    q_80 = int(len(dates) * .8)
-    q_90 = int(len(dates) * .9)
+    # Convert the x_train and y_train to numpy arrays
+    x_train, y_train = np.array(x_train), np.array(y_train)
 
+    # Reshape the data
+    x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
-    dates_train, X_train, y_train = dates[:q_80], X[:q_80], y[:q_80]
+    # Build the LSTM Model
+    model = Sequential()
+    model.add(LSTM(50, return_sequences=True,
+              input_shape=(x_train.shape[1], 1)))
+    model.add(LSTM(50, return_sequences=False))
+    model.add(Dense(25))
+    model.add(Dense(1))
 
-    dates_val, X_val, y_val = dates[q_80:q_90], X[q_80:q_90], y[q_80:q_90]
-    dates_test, X_test, y_test = dates[q_90:], X[q_90:], y[q_90:]
+    # Compile the model
+    model.compile(optimizer='adam', loss='mean_squared_error')
 
-    plt.plot(dates_train, y_train)
-    plt.plot(dates_val, y_val)
-    plt.plot(dates_test, y_test)
+    # Train the model
+    model.fit(x_train, y_train, batch_size=1, epochs=1)
 
-    plt.legend(['Train', 'Validation', 'Test']) 
-    
+    # Create a new array containg scaled values from index 1543 to 2003
+    test_data = scaled_data[training_data_len - 60:, :]
 
+    # Create the data sets x_test and y_test
+    x_test = []
+    y_test = dataset[training_data_len:, :]
+    for i in range(60, len(test_data)):
+        x_test.append(test_data[i-60:i, 0])
 
-    model = keras.Sequential([layers.Input((3, 1)),
-        layers.LSTM(64),
-        layers.Dense(32, activation='relu'),
-        layers.Dense(32, activation='relu'),
-        layers.Dense(1)])
+    # Convert the data to a numpy array
+    x_test = np.array(x_test)
 
-    model.compile(loss='mse', 
-                    optimizer=Adam(learning_rate=0.001),
-                    metrics=['mean_absolute_error'])
+    # Reshape the data
+    x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
 
-    model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=100)
+    # Get the models predicted price values
+    predictions = model.predict(x_test)
+    predictions = scaler.inverse_transform(predictions)
 
-    train_predictions = model.predict(X_train).flatten()
-    val_predictions = model.predict(X_val).flatten()
-    test_predictions = model.predict(X_test).flatten()
+    # Get the root mean squared error (RMSE)
+    rmse = np.sqrt(np.mean(((predictions - y_test) ** 2)))
+    print(rmse)
+    xyz = predictions[len(predictions) - 1] + rmse
+    print("Final Predictions: " + str(xyz))
+    # Plot the data
+    train = data[:training_data_len]
+    valid = data[training_data_len:]
+    valid['Predictions'] = predictions
 
-    plt.plot(dates_train, train_predictions)
-    plt.plot(dates_train, y_train)
-    plt.plot(dates_val, val_predictions)
-    plt.plot(dates_val, y_val)
-    plt.plot(dates_test, test_predictions)
-    plt.plot(dates_test, y_test)
-    plt.legend(['Training Predictions', 
-                'Training Observations',
-                'Validation Predictions', 
-                'Validation Observations',
-                'Testing Predictions', 
-                'Testing Observations'])
-    plt.savefig(fname="all.png")
-    recursive_predictions = []
-    recursive_dates=np.concatenate([dates_val, dates_test])
-    last_window = deepcopy(X_train[-1])
-    for target_date in recursive_dates:
-        next_prediction=model.predict(np.array([last_window[-3:]])).flatten()
-        recursive_predictions.append(next_prediction)
-        last_window=np.concatenate((last_window,[next_prediction]))
-        #print(last_window)
-
-
-
-    
-
-    print("Prediction for this stock: ")
-    #arr = np.array([last_window])
-    arr = list(recursive_predictions)
-    print(arr[len(arr)-1])
-    global preferred_stock_predictions
-    preferred_stock_predictions = arr[0][0]
-    plt.plot(dates_train, train_predictions)
-    plt.plot(dates_train, y_train)
-    plt.plot(dates_val, val_predictions)
-    plt.plot(dates_val, y_val)
-    plt.plot(dates_test, test_predictions)
-    plt.plot(dates_test, y_test)
-    plt.plot(recursive_dates, recursive_predictions)
-    plt.title("LTSM Stock Prediction")
-    plt.xlabel("Time")
-    plt.ylabel("Stock Price")
-    plt.legend(['Training Predictions', 
-                'Training Observations',
-                'Validation Predictions', 
-                'Validation Observations',
-                'Testing Predictions', 
-                'Testing Observations',
-                'Recursive Predictions'])
-    plt.savefig(bytes_me,format="png")
+    # Visualize the data
+    plt.figure(figsize=(16, 8))
+    plt.title('Model')
+    plt.xlabel('Date', fontsize=18)
+    plt.ylabel('Close Price USD ($)', fontsize=18)
+    plt.plot(train['Close'])
+    plt.plot(valid[['Close', 'Predictions']])
+    plt.legend(['Train', 'Val', 'Predictions'], loc='lower right')
+    plt.savefig(bytes_me, format="png")
     bytes_me.seek(0)
-    global lstm_image
     final_img = base64.b64encode(bytes_me.read()).decode()
-    lstm_image = final_img
-    return (arr[len(arr)-1][0],final_img)
+
+    return (xyz[0], final_img)
+
+
+@app.route('/info2', methods=['GET', 'POST'])
+def get_all_stocks():
+    if request.method == 'GET':
+        all_the_stocks = current_user.stockz
+        current_amount_money = round(current_user.money, 2)
+        return render_template('/home/inventory.html', round=round, yf=yf, all_the_stocks=all_the_stocks, current_amount_money=current_amount_money)
+    elif request.method == 'POST':
+        id = request.form.get('val')
+        stock_sold = Stock.query.filter(Stock.id == id).first()
+        ticker_yahoo = yf.Ticker(stock_sold.name)
+        data = ticker_yahoo.history()
+        last_quote = data['Close'].iloc[-1]
+        current_user.money = current_user.money + (last_quote * (stock_sold.amount))
+        current_user.stockz.remove(stock_sold)
+        db.session.commit()
+        current_amount_money = round(current_user.money, 2)
+        all_the_stocks = current_user.stockz
+        return render_template('/home/inventory.html', round=round, yf=yf, all_the_stocks=all_the_stocks, current_amount_money=current_amount_money)
+
+
 @app.route('/buy', methods=['POST'])
 def buy_me():
+    error2 = ""
+    last_quote = ""
     if request.method == 'POST':
         selected = request.form.get('currency')
         stock_amount = request.form.get('stock_amt')
+        
         stock_name = preferred_stock_name
         print("Stock Name:" + stock_name)
         print(selected)
-        bitcoin_value = currency("USD")
-        max_amount_btc = current_user.money / bitcoin_value
         ticker_yahoo = yf.Ticker(preferred_stock_name)
         data = ticker_yahoo.history()
-        last_quote = data['Close'].iloc[-1]
-        if selected == "BTC":
-            
-            print(bitcoin_value)
-            the_amount_wanted = int(float(stock_amount)) * bitcoin_value
-            print(type(max_amount_btc))
-            print(type(the_amount_wanted))
-            if(the_amount_wanted > max_amount_btc):
+        last_quote = data['Close'].iloc[-1].tolist()
+
+        last_quote = round(last_quote, 2)
+        if selected == "USD":
+
+            print(current_user.money)
+            the_amount_wanted = float(stock_amount) * last_quote
+            if (the_amount_wanted > current_user.money):
                 error2 = "Unable to get that amount, lack of money"
-                return render_template("/stocks/stock.html",lstm_image=lstm_image,regular_image=regular_image,error=error2,preferred_stock_name=preferred_stock_name,preferred_stock_predictions=preferred_stock_predictions,last_quote=last_quote)
+                return render_template("/stocks/stock.html",lstm_image=lstm_image, regular_image=regular_image, error=error2, preferred_stock_name=preferred_stock_name, preferred_stock_predictions=preferred_stock_predictions, last_quote=last_quote)
             else:
-                stock_to_btc = float(last_quote / bitcoin_value)
-                max_amount_btc = max_amount_btc - stock_to_btc
-                current_user.money = max_amount_btc * bitcoin_value
-                new_stock = Stock(name=preferred_stock_name,amount=stock_amount, price=last_quote)
+                total_amount = last_quote * float(stock_amount)
+                current_user.money = current_user.money - total_amount
+
+                new_stock = Stock(name=preferred_stock_name,
+                                  amount=stock_amount, price=last_quote)
                 current_user.stockz.append(new_stock)
                 db.session.commit()
-                error2 = f'You have successfully purchased {stock_amount} of {preferred_stock_name} with {stock_to_btc} BTC'
+                error2 = f'You have successfully purchased {stock_amount} of {
+                    preferred_stock_name} with {total_amount} USD'
                 return error2
-               
+
                 # find the stock name price
                 # get the stock name price * amount
                 # turn that into bitcoin
                 # used ur max_amount_Btc to buy it
                 # add it to your person object stocks.
-            print("Max amount able to buy of stock with bitcoin: " + str(max_amount_btc));
-    return "Hello world"
+            print("Max amount able to buy of stock with bitcoin: " +
+                  str(max_amount_btc))
+        
+    return render_template("/stocks/stock.html",lstm_image=lstm_image, regular_image=regular_image, error=error2, preferred_stock_name=preferred_stock_name, preferred_stock_predictions=preferred_stock_predictions, last_quote=last_quote)
+
+
 @app.route('/stocks', methods=['POST', 'GET'])
 def stock():
     current_date = datetime.date.today()
@@ -597,188 +414,216 @@ def stock():
         to_date = request.form.get('to_date')
         period = request.form.getlist('period')
 
-        
         global preferred_stock_name
-        preferred_stock_name = stock_name;
+        preferred_stock_name = stock_name
 
         ticker_yahoo = yf.Ticker(preferred_stock_name)
         data = ticker_yahoo.history()
 
-        #data = ticker_yahoo.history()
+        # data = ticker_yahoo.history()
 
         stock_price = data['Close'].iloc[-1]
-        stock_price = round(stock_price,2)
+        stock_price = round(stock_price, 2)
         usr_wallet_amount = current_user.money
-        usr_wallet_amount = round(usr_wallet_amount,2)
-        number_of_years = check_if_under_year(from_date,to_date);
+        usr_wallet_amount = round(usr_wallet_amount, 2)
+        
         if "d" in period:
-            check_if_under_year(from_date,to_date);
-            #lstm(stock_name,from_date,to_date)
-            """
+
             bytes_me = io.BytesIO()
-            
-            true_value, final_img= plotting_diagram(stock_name,from_date,to_date)
-            true_value = round(true_value,2)
+
+            true_value, final_img = lstm(stock_name, from_date, to_date)
+            true_value = round(true_value, 2)
             plt.clf()
 
-            ## Get the data from stock api
-            resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='d',from_date=from_date,to_date=to_date)
-            with open("sample.json","w") as outfile:
-                json.dump(resp,outfile)
+            # Get the data from stock api
+            resp = api.get_eod_historical_stock_market_data(
+                symbol=stock_name, period='d', from_date=from_date, to_date=to_date)
+            with open("sample.json", "w") as outfile:
+                json.dump(resp, outfile)
 
-            #Load the data into f
+            # Load the data into f
             f = open('sample.json')
             data = json.load(f)
-
             df = pd.DataFrame(data)
-            
-            
-            df = df[['date','close']]
-            #print(df)
+
+            df = df[['date', 'close']]
+            # print(df)
             df['date'] = df['date'].apply(str_to_datetime)
             df.index = df.pop('date')
-            #plt.subplot(1,2,2)
-            plt.plot(df.index, df['close'])       
-            #Plot 
-            #Save the plotting image
+            # plt.subplot(1,2,2)
+            plt.plot(df.index, df['close'])
+            # Plot
+            # Save the plotting image
             plt.title("Stock")
             plt.xlabel("Time")
             plt.ylabel("Price")
-            
-            plt.savefig(bytes_me,format="png")
+
+            plt.savefig(bytes_me, format="png")
             bytes_me.seek(0)
-            
+
             my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
             global regular_image
             regular_image = my_base_64_pngData
-            
-            
-            
 
-            #This was the first option
-            return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)
-            """
+            # This was the first option
+            return render_template('/stocks/stock.html',round=round,usr_wallet_amount=usr_wallet_amount, my_base_64_pngData=my_base_64_pngData, final_img=final_img, stock_name=stock_name, current_date=current_date, true_value=true_value, stock_price=stock_price)
+
         elif 'w' in period:
-            """
-            
-                #Get img
-                bytes_me = io.BytesIO()
-                
-                true_value,final_img = plotting_diagram(stock_name,from_date,to_date)
-                true_value = round(true_value,2)
-                #Get data from api
-                plt.clf()
-                resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='w',from_date=from_date,to_date=to_date)
-                with open("sample.json","w") as outfile:
-                    json.dump(resp,outfile)
 
-                f = open('sample.json')
-                data = json.load(f)
-
-                #Put that data into a dictionary aka dataframe
-                #df = pd.DataFrame.from_dict(data)
-
-                df = pd.DataFrame(data)
-
-
-                df = df[['date','close']]
-                
-                df['date'] = df['date'].apply(str_to_datetime)
-                df.index = df.pop('date')
-                #Plot
-                
-                plt.plot(df.index, df['close'])
-                
-                #Save the plot and insert it into html
-                plt.title("Stock")
-                plt.xlabel("Time")
-                plt.ylabel("Price")
-                plt.savefig(bytes_me,format="png")
-                bytes_me.seek(0)
-                
-                my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
-                regular_image = my_base_64_pngData
-
-            
-                return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)                    
-                
-            """
-        elif "m" in period:
-            """
+            # Get img
             bytes_me = io.BytesIO()
-            #image
-            
-            true_value,final_img = plotting_diagram(stock_name,from_date,to_date)
-            true_value = round(true_value,2)
+
+            true_value, final_img = lstm(stock_name, from_date, to_date)
+            true_value = round(true_value, 2)
+            # Get data from api
             plt.clf()
-            #Get data from api
-            resp = api.get_eod_historical_stock_market_data(symbol=stock_name, period='m',from_date=from_date,to_date=to_date)
-            with open("sample.json","w") as outfile:
-                json.dump(resp,outfile)
+            resp = api.get_eod_historical_stock_market_data(
+                symbol=stock_name, period='w', from_date=from_date, to_date=to_date)
+            with open("sample.json", "w") as outfile:
+                json.dump(resp, outfile)
 
-            #Load the data into f
             f = open('sample.json')
-
-            #Load the data from file 
             data = json.load(f)
 
-            #Data into a dataframe
+            # Put that data into a dictionary aka dataframe
+            # df = pd.DataFrame.from_dict(data)
+
             df = pd.DataFrame(data)
 
-            df = df[['date','close']]
-            
+            df = df[['date', 'close']]
+
+            df['date'] = df['date'].apply(str_to_datetime)
+            df.index = df.pop('date')
+            # Plot
+
+            plt.plot(df.index, df['close'])
+
+            # Save the plot and insert it into html
+            plt.title("Stock")
+            plt.xlabel("Time")
+            plt.ylabel("Price")
+            plt.savefig(bytes_me, format="png")
+            bytes_me.seek(0)
+
+            my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
+            regular_image = my_base_64_pngData
+
+            return render_template('/stocks/stock.html',round=round,usr_wallet_amount=usr_wallet_amount, my_base_64_pngData=my_base_64_pngData, final_img=final_img, stock_name=stock_name, current_date=current_date, true_value=true_value, stock_price=stock_price)
+
+        elif "m" in period:
+
+            bytes_me = io.BytesIO()
+            # image
+
+            true_value, final_img = lstm(stock_name, from_date, to_date)
+            true_value = round(true_value, 2)
+            plt.clf()
+            # Get data from api
+            resp = api.get_eod_historical_stock_market_data(
+                symbol=stock_name, period='m', from_date=from_date, to_date=to_date)
+            with open("sample.json", "w") as outfile:
+                json.dump(resp, outfile)
+
+            # Load the data into f
+            f = open('sample.json')
+
+            # Load the data from file
+            data = json.load(f)
+
+            # Data into a dataframe
+            df = pd.DataFrame(data)
+
+            df = df[['date', 'close']]
+
             df['date'] = df['date'].apply(str_to_datetime)
 
             df.index = df.pop('date')
 
-            #Plot
+            # Plot
             plt.plot(df.index, df['close'])
             plt.title("Stock")
             plt.xlabel("Time")
             plt.ylabel("Price")
-            plt.savefig(bytes_me,format="png")
+            plt.savefig(bytes_me, format="png")
             bytes_me.seek(0)
-            
+
             my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
             regular_image = my_base_64_pngData
-            
-            
-            return render_template('/stocks/stock.html',usr_wallet_amount=usr_wallet_amount,my_base_64_pngData=my_base_64_pngData,final_img=final_img,stock_name=stock_name,current_date=current_date,true_value=true_value,stock_price=stock_price)
-            """
 
-            
+            return render_template('/stocks/stock.html',round=round,usr_wallet_amount=usr_wallet_amount, my_base_64_pngData=my_base_64_pngData, final_img=final_img, stock_name=stock_name, current_date=current_date, true_value=true_value, stock_price=stock_price)
+        else:
+            bytes_me = io.BytesIO()
+            true_value, final_img = lstm(stock_name, from_date, to_date)
+            true_value = round(true_value, 2)
+            plt.clf()
+            # Get data from api
+            resp = api.get_eod_historical_stock_market_data(
+                symbol=stock_name, from_date=from_date, to_date=to_date)
+            with open("sample.json", "w") as outfile:
+                json.dump(resp, outfile)
+
+            # Load the data into f
+            f = open('sample.json')
+
+            # Load the data from file
+            data = json.load(f)
+
+            # Data into a dataframe
+            df = pd.DataFrame(data)
+
+            df = df[['date', 'close']]
+
+            df['date'] = df['date'].apply(str_to_datetime)
+
+            df.index = df.pop('date')
+
+            # Plot
+            plt.plot(df.index, df['close'])
+            plt.title("Stock")
+            plt.xlabel("Time")
+            plt.ylabel("Price")
+            plt.savefig(bytes_me, format="png")
+            bytes_me.seek(0)
+
+            my_base_64_pngData = base64.b64encode(bytes_me.read()).decode()
+            regular_image = my_base_64_pngData
+
+            return render_template('/stocks/stock.html',round=round,usr_wallet_amount=usr_wallet_amount, my_base_64_pngData=my_base_64_pngData, final_img=final_img, stock_name=stock_name, current_date=current_date, true_value=true_value, stock_price=stock_price)
     else:
         empty_table = []
-        username = str(current_user.username)
-        print(username)
-        #date = datetime.datetime.now()
-        
+        username = current_user.username
+        usr_wallet_amount = current_user.money
         new_user = Person.query.filter_by(username=username).first()
-        return render_template('/stocks/stock.html',current_user=new_user)
+        return render_template('/stocks/stock.html', usr_wallet_amount=usr_wallet_amount, current_user=new_user,round=round)
     return render_template('/stocks/stock.html')
 
-#input - windowed dataframe with 3 setbacks of dates to target value
-def windowed_df_to_date_X_y(windowed_dataframe):
+def wallet_xmr_btc_eth():
+    usr_wallet_amount = current_user.money
+    usr_wallet_amount = round(usr_wallet_amount, 2)
+    bitcoin_max_amount = currency("USD")
+    bth_wallet = usr_wallet_amount / bitcoin_max_amount
+    bth_wallet = round(bth_wallet,9)
+    # date = datetime.datetime.now()
+    today = date.today()
+    print("Was i here")
     
-  df_as_np = windowed_dataframe.to_numpy()
+    ticker_yahoo = yf.Ticker("ETH-USD")
+    data = ticker_yahoo.history()
+    eth_price = data['Close'].iloc[-1]
+    eth_price = round(eth_price,2)
+    eth_wallet = usr_wallet_amount / eth_price
+    eth_wallet = round(eth_wallet,9)
 
-  #[:, 0] everything from beginning to the end, 0 for second dimension
-
-  dates = df_as_np[:, 0]
-
-  #: get all the rows, get the only first column, not the last column of the row
-  middle_matrix = df_as_np[:, 1:-1]
-
-  #Number of observations 
-  X = middle_matrix.reshape((len(dates), middle_matrix.shape[1], 1))
-
-  Y = df_as_np[:, -1]
-
-  return dates, X.astype(np.float32), Y.astype(np.float32)
-
-
-
-@app.route('/info', methods=['POST','GET'])
+    ticker_yahoo = yf.Ticker("XMR-USD")
+    data = ticker_yahoo.history()
+    xmr_price = data['Close'].iloc[-1]
+    xmr_price = round(xmr_price,2)
+    xmr_wallet = usr_wallet_amount / xmr_price
+    xmr_wallet = round(xmr_wallet,9)
+    print(xmr_price)
+    return (bth_wallet,eth_wallet,xmr_wallet)
+    
+@app.route('/info', methods=['POST', 'GET'])
 def index():
     if request.method == 'POST':
         username_content = request.form.get('username')
@@ -787,40 +632,45 @@ def index():
         password_content_2 = request.form.get('password2')
         if Person.is_user_name_taken(username_content):
             username_validation = False
-            return render_template('/auth/info.html',username_validation=username_validation)
+            return render_template('/auth/info.html', username_validation=username_validation)
         elif Person.is_email_taken(email_content):
             email_validation = False
-            return render_template('/auth/info.html',email_validation=email_validation)
+            return render_template('/auth/info.html', email_validation=email_validation)
         if password_content == password_content_2:
-            new_person = Person(username=username_content, 
-                          password=password_content, 
-                          email=email_content)
-            
+            new_person = Person(username=username_content,
+                                password=password_content,
+                                email=email_content)
+
             try:
                 with app.app_context():
                     db.session.add(new_person)
                     db.session.commit()
                     login_user(new_person, remember=True)
-                    top_headlines = newsapi.get_top_headlines(country="us",language="en")
+                    top_headlines = newsapi.get_top_headlines(
+                        country="us", language="en")
                     total_results = top_headlines['totalResults']
                     if total_results > 100:
                         total_results = 100
-                    all_headlines = newsapi.get_top_headlines(country="us", language="en", page_size=total_results)['articles']
-                    
-                    response = make_response(render_template('/home/home.html',all_headlines=all_headlines,new_person=new_person))
-                    response.set_cookie("Person1",username_content)
-                    return render_template('/home/home.html',all_headlines=all_headlines,new_person=new_person)
+                    all_headlines = newsapi.get_top_headlines(
+                        country="us", language="en", page_size=total_results)['articles']
+
+                    response = make_response(render_template(
+                        '/home/home.html', all_headlines=all_headlines, new_person=new_person))
+                    response.set_cookie("Person1", username_content)
+                    return render_template('/home/home.html', all_headlines=all_headlines, new_person=new_person)
             except Exception as error:
                 print("An error occured:", error)
-                
+
         else:
             validation_password = False
-            return render_template('/auth/info.html',validation_password=validation_password)
+            return render_template('/auth/info.html', validation_password=validation_password)
     else:
         Person1 = request.cookies.get('Person1')
-        return render_template('/auth/info.html',Person1=Person1)
+        return render_template('/auth/info.html', Person1=Person1)
     return render_template('/home/home.html')
-@app.route("/reset_password", methods=["GET","POST"])
+
+
+@app.route("/reset_password", methods=["GET", "POST"])
 def reset_password_request():
     error = None
     if request.method == "POST":
@@ -828,48 +678,49 @@ def reset_password_request():
         user = Person.query.filter_by(email=email).first()
         if user:
             send_reset_password_email(user)
-            error="Instructors to reset your password were sent to your email address, if it exists in our system"
+            error = "Instructors to reset your password were sent to your email address, if it exists in our system"
         else:
             error = "Email does not exists in database"
-    return render_template("/auth/ResetPassword.html",error=error)
+    return render_template("/auth/ResetPassword.html", error=error)
 
-@app.route("/reset_password/<token>/<int:user_id>", methods=["GET","POST"])
-def reset_password(token,user_id):
+
+@app.route("/reset_password/<token>/<int:user_id>", methods=["GET", "POST"])
+def reset_password(token, user_id):
     error = None
     if current_user.is_authenticated:
         return redirect("/news")
-    user = Person.validate_reset_password_token(token,user_id)
+    user = Person.validate_reset_password_token(token, user_id)
     if not user:
         error = "User does not exists"
-        return render_template("auth/reset_password_error.html",title="Reset Password error",error=error)
+        return render_template("auth/reset_password_error.html", title="Reset Password error", error=error)
     if request.method == "POST":
         password1 = request.form.get("password")
         password2 = request.form.get("password2")
         if password1 == password2:
-            
+
             try:
                 with app.app_context():
-                    email = user.email;
+                    email = user.email
                     user2 = Person.query.filter_by(email=email).first()
                     user2.set_password(password2)
-                    
+
                     db.session.commit()
                     return render_template(
-                        "/auth/reset_password_success.html",title="Reset Password Success", current_user=user2
+                        "/auth/reset_password_success.html", title="Reset Password Success", current_user=user2
                     )
-            except Exception as err: 
+            except Exception as err:
                 print(f"Unexpected {err=}, {type(err)=}")
                 raise
-                
-            
+
         else:
             error = "None matching passwords"
             return render_template(
-                "/auth/reset_password_error.html", error=error,title="Reset Password Failed"
+                "/auth/reset_password_error.html", error=error, title="Reset Password Failed"
             )
-    return render_template("/auth/ResetPasswordFinal.html",error=error,user=user)
+    return render_template("/auth/ResetPasswordFinal.html", error=error, user=user)
 
-@app.route("/login", methods=['GET','POST'])
+
+@app.route("/login", methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == "POST":
@@ -878,32 +729,36 @@ def login():
         user = Person.query.filter_by(email=email).first()
         if user:
             if user.password == password:
-                login_user(user,remember=True)
-                user.is_authenticated();
+                login_user(user, remember=True)
+                user.is_authenticated()
                 return redirect('/')
             else:
                 error = "Invalid Credentials. Please try again."
         else:
             return "Email does not exist."
-    return render_template("/auth/login.html",user=current_user,error=error)
+    return render_template("/auth/login.html", user=current_user, error=error)
+
+
 def send_reset_password_email(user):
     reset_password_url = url_for(
         "reset_password",
         token=user.generate_reset_password_token(),
         user_id=user.id,
-        _external = True,
+        _external=True,
     )
     email_body = render_template_string(
-        reset_password_email_html_content,reset_password_url=reset_password_url
+        reset_password_email_html_content, reset_password_url=reset_password_url
     )
     with mail.connect() as conn:
         message = Message(
-        subject="Reset your password",
-        html=email_body,
-        recipients=[user.email],
-        sender=os.getenv("MAIL_USERNAME"))
+            subject="Reset your password",
+            html=email_body,
+            recipients=[user.email],
+            sender=os.getenv("MAIL_USERNAME"))
 
         conn.send(message)
+
+
 @app.route('/delete/<int:id>')
 def delete(id):
     person_to_delete = Person.query.get_or_404(id)
@@ -911,14 +766,16 @@ def delete(id):
         db.session.delete(person_to_delete)
         db.session.commit()
         return redirect('/info')
-    except: 
+    except:
         return 'There was a problem deleting that task'
+
 
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect("/")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
