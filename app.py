@@ -15,7 +15,6 @@ import io
 
 from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect, session
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user, UserMixin
-import flask_login
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 
