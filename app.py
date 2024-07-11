@@ -306,9 +306,9 @@ def lstm(stock_name, from_date, to_date):
 
     # Get the root mean squared error (RMSE)
     rmse = np.sqrt(np.mean(((predictions - y_test) ** 2)))
-    print(rmse)
+    #print(rmse)
     xyz = predictions[len(predictions) - 1] + rmse
-    print("Final Predictions: " + str(xyz))
+    #print("Final Predictions: " + str(xyz))
     # Plot the data
     train = data[:training_data_len]
     valid = data[training_data_len:]
@@ -359,7 +359,7 @@ def buy_me():
         
         stock_name = preferred_stock_name
         print("Stock Name:" + stock_name)
-        print(selected)
+        #print(selected)
         ticker_yahoo = yf.Ticker(preferred_stock_name)
         data = ticker_yahoo.history()
         last_quote = data['Close'].iloc[-1].tolist()
@@ -611,7 +611,7 @@ def wallet_xmr_btc_eth():
     xmr_price = round(xmr_price,2)
     xmr_wallet = usr_wallet_amount / xmr_price
     xmr_wallet = round(xmr_wallet,9)
-    print(xmr_price)
+    #print(xmr_price)
     return (bth_wallet,eth_wallet,xmr_wallet)
     
 @app.route('/info', methods=['POST', 'GET'])
