@@ -19,7 +19,6 @@ import flask_login
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 
-from flask_bcrypt import Bcrypt
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
 from itsdangerous import URLSafeTimedSerializer
@@ -59,7 +58,7 @@ regular_image = ""
 preferred_stock_predictions = []
 app = Flask(__name__)
 
-bcrypt = Bcrypt(app)
+
 
 app.secret_key = os.getenv('SECRET_KEY_FLASK')
 newsapi = NewsApiClient(os.getenv('news_api'))
