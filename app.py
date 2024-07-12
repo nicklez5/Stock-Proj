@@ -427,6 +427,7 @@ def stock():
             plt.clf()
 
             # Get the data from stock api
+            
             resp = api.get_eod_historical_stock_market_data(
                 symbol=stock_name, period='d', from_date=from_date, to_date=to_date)
             with open("sample.json", "w") as outfile:
