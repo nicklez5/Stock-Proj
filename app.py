@@ -4,31 +4,22 @@ from templates.auth.reset_password_email_content import (
     reset_password_email_html_content)
 import json
 from bitcoin_value import currency
-
 import datetime
 from datetime import date
-
 from newsapi import NewsApiClient
-
 import matplotlib.pyplot as plt
 import io
-
 from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect, session
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user, UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
-
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
 from itsdangerous import URLSafeTimedSerializer
-
 from io import BytesIO
 import base64
-
 # Machine learning imports
-
 import numpy as np
-
 from dotenv import load_dotenv
 import os
 import tensorflow as tf
