@@ -7,6 +7,8 @@ from bitcoin_value import currency
 import datetime
 from datetime import date
 from newsapi import NewsApiClient
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect, session
