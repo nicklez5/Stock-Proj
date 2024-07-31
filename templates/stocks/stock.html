@@ -53,7 +53,9 @@
             {% if preferred_stock_name %}
             <p style="color:green; position: relative; bottom: 45px;">Stock Name: {{preferred_stock_name}}</p>
             {% endif %}
-            <p style="color:green; position: relative; bottom: 40px;">Predictions:</p>
+            <p style="color:green; position: relative; bottom: 150px;">Predictions:</p>
+            <p style="color:green; position: relative; bottom: 150px; left: 150px;">{{preferred_stock_predictions}}</p>
+            
             <br/>
             
             
@@ -71,8 +73,9 @@
             
             <img src="data:image/png;base64, {{ final_img}}" class="img2"/> 
             
-            <p style="color:green; position: absolute; left:100px; bottom: 385px;">{{true_value}}</p>
-            <p style="color:green; position: absolute; left:100px; bottom: 450px;">{{preferred_stock_predictions}}</p>
+            <p style="color:green; position: absolute; left:100px; top:205px;">{{true_value}}</p>
+            
+            
 
         </div>
     <form class="buy" action="/buy" method="POST" id="buy_option" >

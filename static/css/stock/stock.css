@@ -127,7 +127,7 @@ form.example::after {
 }
 #day_label{
     display: inline-block;
-    left: 550px;
+    left: 725px;
     top: 300px;
     position: absolute;
     color: green;
@@ -136,7 +136,7 @@ form.example::after {
 }
 #checkbox_day_label{
     display: inline-block;
-    left: 590px;
+    left: 700px;
     top: 300px;
     position: absolute;
     color: green;
@@ -145,7 +145,7 @@ form.example::after {
 }
 #checkbox_week_label{
     display: inline-block;
-    left: 690px;
+    left: 800px;
     top: 300px;
     position: absolute;
     color: green;
@@ -154,7 +154,7 @@ form.example::after {
 }
 #week_label{
     display: inline-block;
-    left: 630px;
+    left: 825px;
     top: 300px;
     position: absolute;
     color: green;
@@ -163,7 +163,7 @@ form.example::after {
 }
 #checkbox_month_label{
     display: inline-block;
-    left: 800px;
+    left: 900px;
     top: 300px;
     position: absolute;
     color: green;
@@ -172,7 +172,7 @@ form.example::after {
 }
 #month_label{
     display: inline-block;
-    left: 750px;
+    left: 925px;
     top: 300px;
     position: absolute;
     color: green;
@@ -238,7 +238,7 @@ form.example::after {
     position: relative;
     padding: 10px;
     border: 1px solid green;
-    height: 175px;
+    height: 225px;
     width: 225px;
 }
 form.buy label{
@@ -249,10 +249,12 @@ form.buy label{
     
 }
 form.buy input{
-    width: 75px;
+    width: 125px;
     margin-left: 65px;
     background-color: green;
     padding: 2.5px;
+    position: absolute;
+    left: 15px;
 }
 form.buy p{
     color: green;
@@ -274,7 +276,7 @@ form.buy button{
     border-radius: 10px;
     position: absolute;
     top: 95px;
-    left: 90px;
+    left: 100px;
 }
 .error2{
     color: green;
