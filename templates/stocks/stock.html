@@ -45,16 +45,16 @@
 
                 <button type="submit" class="fa fa-search" style="background-color: green"></button>
             </form>
-            <p style="color:green; position:relative; bottom:50px;">Stock Price: {{ stock_price }}</p>
+            <p id="stock_price">Stock Price: {{ stock_price }}</p>
             {% if last_quote %}
-            <p style="color:green; position:relative; bottom:50px;">Stock Price: {{ last_quote }}</p>
+            <p id="stock_price2">Stock Price: {{ last_quote }}</p>
             {% endif %}
-            <p style="color:green; position: absolute; bottom: 45px;">Stock Name: {{stock_name}}</p>
+            <p id="stock_name">Stock Name: {{stock_name}}</p>
             {% if preferred_stock_name %}
-            <p style="color:green; position: absolute; bottom: 45px;">Stock Name: {{preferred_stock_name}}</p>
+            <p id="stock_name2">Stock Name: {{preferred_stock_name}}</p>
             {% endif %}
-            <p style="color:green; position: relative; bottom: 150px;">Predictions:</p>
-            <p style="color:green; position: relative; bottom: 150px; left: 150px;">{{preferred_stock_predictions}}</p>
+            <p id="stock_predict">Predictions:</p>
+            <p id="stock_predict2">{{preferred_stock_predictions}}</p>
             
             <br/>
             
@@ -73,7 +73,7 @@
             
             <img src="data:image/png;base64, {{ final_img}}" class="img2"/> 
             
-            <p style="color:green; position: absolute; left:100px; top:205px;">{{true_value}}</p>
+            <p id="stock_predict3">{{true_value}}</p>
             
             
 
