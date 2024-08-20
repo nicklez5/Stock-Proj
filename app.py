@@ -7,6 +7,7 @@ from bitcoin_value import currency
 import datetime
 from datetime import date
 from newsapi import NewsApiClient
+from newsdataapi import NewsDataApiClient
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -14,6 +15,7 @@ import io
 from flask import Flask, flash, make_response, render_template, render_template_string, url_for, request, redirect, session
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user, UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
 from flask_mail import Mail, Message
 from itsdangerous import BadSignature, SignatureExpired, TimedSerializer
 from eodhd import APIClient
@@ -43,7 +45,6 @@ plt.style.use('fivethirtyeight')
 # Machine learning devices
 
 
-load_dotenv()
 
 lstm_image = ""
 regular_image = ""
@@ -52,8 +53,9 @@ app = Flask(__name__)
 
 
 
+
 app.secret_key = os.getenv('SECRET_KEY_FLASK')
-newsapi = NewsApiClient(os.getenv('news_api'))
+newsapi = NewsApiClient(api_key='73250150a7eb41ef98e7c198b1fec41c')
 api = APIClient(os.getenv("api_client"))
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
@@ -210,15 +212,19 @@ def home_no_login():
 
 @app.route("/news", methods=['GET'])
 def home():
-    top_headlines = newsapi.get_top_headlines(country="us", language="en")
-    total_results = top_headlines['totalResults']
-    if total_results > 100:
-        total_results = 100
-    all_headlines = newsapi.get_top_headlines(
-        country="us", language="en", page_size=total_results)['articles']
-    # username = session['username']
-    new_user = current_user
-    return render_template("/home/home.html", all_headlines=all_headlines, current_user=new_user)
+    if request.method == "GET":
+        sources,domains = get_sources_and_domains()
+        top_headlines = newsapi.get_top_headlines(sources=sources, language="en")
+        
+        total_results = top_headlines['totalResults']
+        if total_results > 100:
+            total_results = 100
+        all_headlines = newsapi.get_top_headlines(
+             language="en",sources=sources)['articles']
+        #print(all_headlines)
+        # username = session['username']
+        new_user = current_user
+        return render_template("/home/home.html", all_headlines=all_headlines, current_user=new_user)
 
 
 def str_to_datetime(s):
@@ -631,13 +637,14 @@ def index():
                     db.session.add(new_person)
                     db.session.commit()
                     login_user(new_person, remember=True)
+                    sources, domains = get_sources_and_domains()
                     top_headlines = newsapi.get_top_headlines(
-                        country="us", language="en")
+                        sources=sources, language="en")
                     total_results = top_headlines['totalResults']
                     if total_results > 100:
                         total_results = 100
                     all_headlines = newsapi.get_top_headlines(
-                        country="us", language="en", page_size=total_results)['articles']
+                        sources=sources, language="en", page_size=total_results)['articles']
 
                     response = make_response(render_template(
                         '/home/home.html', all_headlines=all_headlines, new_person=new_person))
@@ -763,5 +770,5 @@ def logout():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    port = int(os.environ.get('PORT',5000))
+    app.run(debug=True,host='0.0.0.0', port=port)

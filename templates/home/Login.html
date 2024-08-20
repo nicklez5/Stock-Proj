@@ -8,7 +8,7 @@
 </head>
 <body">
     <ul>
-        {% if current_user %}
+        {% if current_user.is_authenticated %}
         <li><a href="/logout">Logout</a></li>
         <li><a href="/info">About</a></li>
         <li><a href="/info2">Inventory</a></li>
@@ -22,7 +22,7 @@
         <li><a href="/">Home</a></li>
         {% endif %}
     </ul>
-    <h1>Welcome to the Stock Market Home Page</h1>
+    <h1 >Welcome to the Stock Market Home Page</h1>
     {% if current_user.is_authenticated %}
     <p>Hello, {{ current_user.username}}!</p>
     <p><a href="/logout">Logout</a></p>

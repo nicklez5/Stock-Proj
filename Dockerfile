@@ -1,13 +1,12 @@
 FROM python:3.12.4
 
-COPY ./requirements.txt /app/requirements.txt
-
 WORKDIR /app
+
+COPY requirements.txt .
 
 RUN pip install -r requirements.txt
 
-COPY . /app
+COPY . .
 
-ENTRYPOINT [ "python" ]
 
-CMD ["app.py"]
+CMD ["python","app.py"]

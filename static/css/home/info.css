@@ -12,6 +12,7 @@
     left: 500px;
     top: 50px;
 }
+
 ul {
     list-style-type: none;
     margin: 0;
@@ -45,6 +46,7 @@ table{
 }
 p{
     position: absolute;
+    
 }
 #sell{
     position: relative;

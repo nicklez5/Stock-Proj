@@ -44,30 +44,30 @@ form.example input[type=date] {
     background: #f1f1f1;
 }
 form.example h1{
-    display: inline-block;
-    left: 425px;
-    display: inline-block;
+    
+   
+    
     position: absolute;
     color: green;
-    font-size: 15px;
-    right: 450px;
-    top: 150px;
+    font-size: 20px;
+    left: 600px;
+    top: 135px;
 }
 form.example h2{
-    display: inline-block;
-    left: 425px;
-    top: 200px;
+    
+    left: 600px;
+    top: 195px;
     position: absolute;
     color: green;
-    font-size: 15px;
+    font-size: 20px;
 }
 form.example h3{
-    display: inline-block;
-    left: 425px;
-    top: 250px;
+    
+    left: 600px;
+    top: 245px;
     position: absolute;
     color: green;
-    font-size: 15px;
+    font-size: 20px;
 }
 form.example input[type=text] {
     margin-top: 30px;
@@ -126,8 +126,8 @@ form.example::after {
     padding-top: 20px;
 }
 #day_label{
-    display: inline-block;
-    left: 725px;
+    
+    left: 775px;
     top: 300px;
     position: absolute;
     color: green;
@@ -135,8 +135,8 @@ form.example::after {
     font-weight: bold;
 }
 #checkbox_day_label{
-    display: inline-block;
-    left: 700px;
+    
+    left: 750px;
     top: 300px;
     position: absolute;
     color: green;
@@ -144,8 +144,8 @@ form.example::after {
     font-weight: bold;
 }
 #checkbox_week_label{
-    display: inline-block;
-    left: 800px;
+    
+    left: 850px;
     top: 300px;
     position: absolute;
     color: green;
@@ -153,8 +153,8 @@ form.example::after {
     font-weight: bold;
 }
 #week_label{
-    display: inline-block;
-    left: 825px;
+    
+    left: 875px;
     top: 300px;
     position: absolute;
     color: green;
@@ -162,8 +162,8 @@ form.example::after {
     font-weight: bold;
 }
 #checkbox_month_label{
-    display: inline-block;
-    left: 900px;
+    
+    left: 975px;
     top: 300px;
     position: absolute;
     color: green;
@@ -171,8 +171,8 @@ form.example::after {
     font-weight: bold;
 }
 #month_label{
-    display: inline-block;
-    left: 925px;
+    
+    left: 1000px;
     top: 300px;
     position: absolute;
     color: green;
