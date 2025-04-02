@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Stocks</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home/info.css') }}">
+</head>
+<body>
+    <ul>
+        
+        {% if current_user %}
+        <li><a href="/logout">Logout</a></li>
+        <li><a href="/info">About</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/news">News</a></li>
+        <li><a href="/">Welcome {{ current_user.username}}</a></li>
+        {% else %}
+        <li><a href="/info">About</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/news">News</a></li>
+        <li><a href="/news">Home</a></li>
+        {% endif %}
+
+    </ul>
+    <p>Money: {{current_amount_money}}</p>
+    <div>
+        {% if all_the_stocks %}
+        <table>
+            <tr>
+                <th>
+                    Stock Name
+                </th>
+                <th>
+                    Current Price
+                <th>
+                    Stock Price
+                </th>
+                <th>
+                    Stock Amount
+                </th>
+                <th>
+                    Date Purchased
+                </th>
+                <th>
+                    Action
+                </th>
+            </tr>
+            {% for stock in all_the_stocks %}
+                <tr>
+                    <td>
+                        {{stock['name']}}
+                    </td>
+                    <td>
+                        {{round(yf.Ticker(stock['name']).history()['Close'].iloc[-1],2)}}
+                    </td>
+                    <td>
+                        {{stock['price']}}
+                    </td>
+                    <td>
+                        {{stock['amount']}}
+                    </td>
+                    <td>
+                        {{stock['date_purchased']}}
+                    </td>
+                    <td>
+                        <form action="" method="post">
+                            <button id="sell" name='val' value="{{stock['id']}}">Sell</button>
+                        </form> 
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+    </div>
+</body>
+</html>

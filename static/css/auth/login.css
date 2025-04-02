@@ -1,0 +1,78 @@
+body{
+    font-family: Arial;
+}
+*{
+    box-sizing: border-box;
+}
+
+.title{
+    color: green;
+    text-align: center;
+    font-family:'Courier New', Courier, monospace;
+}
+#titlez{
+    color: green;
+    text-align: center;
+}
+form.example input[type=text]{
+    position: relative;
+    margin-top: 15px;
+    padding: 10px;
+    left: 35px;
+    
+    font-size: 12.5px;
+    border: 1px solid grey;
+    float: left;
+    width: 80%;
+    background: #f1f1f1;
+}
+form.example h1{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    right: 1025px;
+    top: 100px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h2{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 155px;
+    right: 1025px;
+    font-family:'Courier New', Courier, monospace
+}
+
+form.example button{
+    position: absolute;
+    background-color: green;
+    top: 250px;
+    right: 750px;
+    height: 50px;
+    width: 100px;
+    border-radius: 25px;
+}
+form.example input[type=password]{
+    position: relative;
+    margin-top: 15px;
+    padding: 10px;
+    left: 35px;
+
+    font-size: 12.5px;
+    border: 1px solid grey;
+    float: left;
+    width: 80%;
+    background: #f1f1f1;
+}
+p{
+    text-align: center;
+    color: green;
+}
+a{
+    color: green;
+    position: relative;
+    top: 175px;
+    right: 400px;
+}

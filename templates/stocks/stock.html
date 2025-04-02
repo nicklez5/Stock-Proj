@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/stock/stock.css')}}">
+    
+    <title>Stocks</title>
+</head>
+<body style="background-color: black">
+    {% block body %}
+    <script src="https://kit.fontawesome.com/e50577ab3f.js" crossorigin="anonymous"></script>
+    <ul>
+        {% if current_user %}
+        <li><a href="/logout">Logout</a></li>
+        <li><a href="/info">About</a></li>
+        <li><a href="/info2">Inventory</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/news">News</a></li>
+        <li><a href="/">Welcome {{ current_user.username}}</a></li>
+        {% else %}
+        <li><a href="/info">About</a></li>
+        <li><a href="/stocks">Stock</a></li>
+        <li><a href="/news">News</a></li>
+        <li><a href="/">Home</a></li>
+        {% endif %}
+    </ul>
+    <h1 id="header_stock">Stocks</h1>  
+    
+    <div>
+            <form class="example" action="/stocks" method="POST" style="margin:auto;max-width:550px" >
+                <h1>Name</h1>
+                <input type="text" placeholder="Search name of company" name="keyword2" >
+                <h2>Start</h2>
+                <input type="date" id="stock-time" name="from_date" min="1986-03-11" max={{ current_date }}>
+                <h3>End</h3>
+                <input type="date" id="stock-time" name="to_date" min="1993-06-12" max={{ current_date }}>
+                <input type="checkbox" id="checkbox_day_label" name="period" value="d">
+                <label for="utc_day" id="day_label">Day</label><br>
+                <input type="checkbox" id="checkbox_week_label" name="period" value="w">
+                <label for="utc_month" id="week_label">Week</label>
+                <input type="checkbox" id="checkbox_month_label" name="period" value="m">
+                <label for="utc_year" id="month_label">Month</label>
+                
+
+                <button type="submit" class="fa fa-search" style="background-color: green"></button>
+            </form>
+            <p id="stock_price">Stock Price: {{ stock_price }}</p>
+            {% if last_quote %}
+            <p id="stock_price2">Stock Price: {{ last_quote }}</p>
+            {% endif %}
+            <p id="stock_name">Stock Name: {{stock_name}}</p>
+            {% if preferred_stock_name %}
+            <p id="stock_name2">Stock Name: {{preferred_stock_name}}</p>
+            {% endif %}
+            <p id="stock_predict">Predictions:</p>
+            <p id="stock_predict2">{{preferred_stock_predictions}}</p>
+            
+            <br/>
+            
+            
+            <img src="data:image/png;base64, {{ my_base_64_pngData}}" class="img1"/>
+            
+
+            {% if regular_image %}
+            <img src="data:image/png;base64, {{ regular_image }}" class="img1"/>
+            {% endif %}
+
+            {% if lstm_image %}
+            <img src="data:image/png;base64, {{ lstm_image }}" class="img2"/>
+            {% endif %}
+
+            
+            <img src="data:image/png;base64, {{ final_img}}" class="img2"/> 
+            
+            <p id="stock_predict3">{{true_value}}</p>
+            
+            
+
+        </div>
+    <form class="buy" action="/buy" method="POST" id="buy_option" >
+        <label >Buy in </label>
+        <select id="currency" name="currency">
+            <option value="USD">USD</option>
+        </select>
+        <br/>
+        <p>Wallet Amount: <strong style="margin-left: 20px;">${{ round(usr_wallet_amount,2) }}</strong></p>
+        <label>Amount</label>
+        <input type="number" name="stock_amt" value=0 step=".01"/>
+        <button type="submit">Submit</button>
+    </form>
+    {% if error %}
+    <p class="error2">{{error}}</p>
+    {% endif %}
+    
+    <!--<div id="table_form">
+        {{ my_table | safe}}
+    </div> -->
+    {% endblock %}
+</body>
+</html>
+
+
+

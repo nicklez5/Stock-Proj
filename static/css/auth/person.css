@@ -1,0 +1,136 @@
+body{
+    font-family: Arial;
+}
+*{
+    box-sizing: border-box;
+}
+.title{
+    color: green;
+    text-align: center;
+    font-family:'Courier New', Courier, monospace
+}
+form.example input[type=text]{
+    position: relative;
+    margin-top: 15px;
+    padding: 10px;
+    left: 35px;
+
+    font-size: 12.5px;
+    border: 1px solid grey;
+    float: left;
+    width: 80%;
+    background: #f1f1f1;
+}
+form.example h1{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    left: 600px;
+    top: 90px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h2{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 135px;
+    left: 600px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h3{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 185px;
+    left: 600px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example h4{
+    display: inline-block;
+    color: green;
+    font-size: 20px;
+    position: absolute;
+    top: 225px;
+    left: 500px;
+    font-family:'Courier New', Courier, monospace
+}
+form.example button{
+    position: absolute;
+    background-color: green;
+    top: 300px;
+    left: 875px;
+    height: 50px;
+    width: 100px;
+    border-radius: 25px;
+}
+form.example input[type=password]{
+    position: relative;
+    margin-top: 15px;
+    padding: 10px;
+    left: 35px;
+
+    font-size: 12.5px;
+    border: 1px solid grey;
+    float: left;
+    width: 80%;
+    background: #f1f1f1;
+}
+p{
+    color: green;
+    position: absolute;
+    font-size: 20px;
+    bottom: 300px;
+    right: 675px;
+}
+#free_template{
+    color: green;
+    position:relative;
+    
+}
+table, td, th {
+    border: 1px solid #aaa;
+    color:green;
+    
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th {
+    height: 30px;
+    
+}
+
+td {
+    text-align: center;
+    padding: 5px;
+}
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #23a92e;
+}
+  
+li {
+    float:left;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    
+}
+
+li a:hover {
+    background-color: #111;
+}
