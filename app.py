@@ -538,8 +538,7 @@ def buy_me():
                                   amount=stock_amount, price=last_quote)
                 current_user.stockz.append(new_stock)
                 db.session.commit()
-                error2 = f'You have successfully purchased {stock_amount} of {
-                    preferred_stock_name} with {total_amount} USD'
+                error2 = f'You have successfully purchased {stock_amount} of {preferred_stock_name} with {total_amount} USD'
                 return error2
 
                 # find the stock name price
