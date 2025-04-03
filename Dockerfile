@@ -1,5 +1,7 @@
 FROM python:3.12.4
 
+EXPOSE 5000/tcp
+
 COPY ./requirements.txt /app/requirements.txt
 
 WORKDIR /app
