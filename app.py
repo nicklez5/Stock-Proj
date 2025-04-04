@@ -302,9 +302,6 @@ def lstm(stock_name, from_date, to_date):
     split_ratio = 0.7
     length_train = round(length_data * split_ratio)
     length_validation = length_data - length_train
-    # print("Data length :", length_data)
-    # print("Train data length :",length_train)
-    # print("Validation data length :" , length_validation)
     train_data = df[:length_train].iloc[:, :2]
     train_data['datetime'] = pd.to_datetime(train_data['datetime'])
     # print(train_data)
@@ -316,12 +313,6 @@ def lstm(stock_name, from_date, to_date):
     dataset_train = np.reshape(dataset_train,(-1,1))
     scaler = MinMaxScaler(feature_range=(0,1))
     dataset_train_scaled = scaler.fit_transform(dataset_train)
-    # print(dataset_train_scaled.shape)
-    # plt.subplots(figsize=(15,6))
-    # plt.plot(dataset_train_scaled)
-    # plt.xlabel("Days as 1st, 2nd, 3rd..")
-    # plt.ylabel("Open Price")
-    # plt.savefig("temp")
     X_train = []
     y_train = []
     time_step = 50
@@ -364,36 +355,12 @@ def lstm(stock_name, from_date, to_date):
         metrics = ["accuracy"]
     )
     history = regressor.fit(X_train,y_train,epochs =50, batch_size = 32)
-    # print(history.history['loss'])
-    # plt.clf()
-    # plt.figure(figsize=(10,7))
-    # plt.plot(history.history["loss"])
-    # plt.xlabel("Epochs")
-    # plt.ylabel("Losses")
-    # plt.title("Simple RNN model, Loss vs Epoch")
-    # plt.savefig("simplernn")
-    # plt.clf()
-    # plt.figure(figsize=(10,5))
-    # plt.plot(history.history["accuracy"])
-    # plt.xlabel("Epochs")
-    # plt.ylabel("Accuracies")
-    # plt.title("Simple RNN model, Accuracy vs Epoch")
-    # plt.savefig("accuracy")
+    
 
     y_pred = regressor.predict(X_train)
     y_pred = scaler.inverse_transform(y_pred)
-    # print(y_pred.shape)
     y_train = scaler.inverse_transform(y_train)
-    # print(y_train.shape)
-    # plt.figure(figsize=(30,10))
-    # plt.plot(y_pred, color="b",label="y_pred")
-    # plt.plot(y_train, color="g",label="y_train")
-    # plt.xlabel("Days")
-    # plt.ylabel("Open price")
-    # plt.title("Simple RNN model, Predictions with input X_train vs y_train")
-    # plt.legend()
-    # plt.savefig("Simple RNN model with predictions")
-    # plt.clf()
+    
     dataset_validation = validation_data.open.values
     dataset_validation = np.reshape(dataset_validation, (-1,1))
     scaled_dataset_validation = scaler.fit_transform(dataset_validation)
@@ -424,16 +391,6 @@ def lstm(stock_name, from_date, to_date):
     plt.legend()
     plt.savefig(bytes_me,format="png")
     plt.clf()
-    # plt.subplots(figsize =(30,12))
-    # plt.plot(train_data.datetime, train_data.open, label = "train_data", color = "b")
-    # plt.plot(validation_data.datetime, validation_data.open, label = "validation_data", color = "g")
-    # plt.plot(train_data.datetime.iloc[time_step:], y_pred, label = "y_pred", color = "r")
-    # plt.plot(validation_data.datetime.iloc[time_step:], y_pred_of_test, label = "y_pred_of_test", color = "orange")
-    # plt.xlabel("Days")
-    # plt.ylabel("Open price")
-    # plt.title("Simple RNN model, Train-Validation-Prediction")
-    # plt.legend()
-    # plt.savefig("Train_validation_Prediction")
     y_train = scaler.fit_transform(y_train)
     model_lstm = keras.models.Sequential()
     model_lstm.add(
@@ -446,28 +403,9 @@ def lstm(stock_name, from_date, to_date):
     model_lstm.add(keras.layers.Dense(1))
     model_lstm.compile(loss="mean_squared_error",optimizer="adam",metrics=["accuracy"])
     history2 = model_lstm.fit(X_train,y_train,epochs=10,batch_size=10)
-    # plt.clf()
-    # plt.figure(figsize=(10,5))
-    # plt.plot(history2.history["loss"])
-    # plt.xlabel("Epochs")
-    # plt.ylabel("Losses")
-    # plt.title("LSTM model, Accuracy vs Epoch")
-    # plt.savefig("LSTM model")
-    # plt.clf()
-    # plt.subplots(figsize =(30,12))
-    # plt.plot(scaler.inverse_transform(model_lstm.predict(X_test)), label = "y_pred_of_test", c = "orange" )
-    # plt.plot(scaler.inverse_transform(y_test), label = "y_test", color = "g")
-    # plt.xlabel("Days")
-    # plt.ylabel("Open price")
-    # plt.title("LSTM model, Predictions with input X_test vs y_test")
-    # plt.legend()
-    # plt.savefig("LSTM model, Predictions with input X_test vs y_test")
-    # print(df.iloc[-1])
     X_input = df.iloc[-time_step:].open.values               # getting last 50 rows and converting to array
     X_input = scaler.fit_transform(X_input.reshape(-1,1))      # converting to 2D array and scaling
     X_input = np.reshape(X_input, (1,50,1))                    # reshaping : converting to 3D array
-    # print("Shape of X_input :", X_input.shape)
-    # print(X_input)
     simple_RNN_prediction = scaler.inverse_transform(regressor.predict(X_input))
     LSTM_prediction = scaler.inverse_transform(model_lstm.predict(X_input))
     print("Simple RNN, Open price prediction for 3/18/2017      :", simple_RNN_prediction[0,0])
@@ -570,8 +508,8 @@ def stock():
 
         # data = ticker_yahoo.history()
 
-        stock_price = data['Close'].iloc[-1]
-        stock_price = round(stock_price, 2)
+        #stock_price = data['Close'].iloc[-1]
+        #stock_price = round(stock_price, 2)
         usr_wallet_amount = current_user.money
         usr_wallet_amount = round(usr_wallet_amount, 2)
         
@@ -597,6 +535,8 @@ def stock():
             data = json.load(open('sample.json'))
             df = pd.DataFrame(data["values"])
             df = df[::-1]
+            stock_price = float(df["close"][0])
+            stock_price = round(stock_price,2)
             df2 = df[['datetime','close']]
 
 
@@ -636,6 +576,8 @@ def stock():
             data = json.load(open('sample.json'))
             df = pd.DataFrame(data["values"])
             df = df[::-1]
+            stock_price = float(df["close"][0])
+            stock_price = round(stock_price,2)
             df2 = df[['datetime','close']]
 
 
@@ -677,6 +619,8 @@ def stock():
             data = json.load(open('sample.json'))
             df = pd.DataFrame(data["values"])
             df = df[::-1]
+            stock_price = float(df["close"][0])
+            stock_price = round(stock_price,2)
             df2 = df[['datetime','close']]
 
 
